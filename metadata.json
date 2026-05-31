@@ -1,0 +1,6 @@
+{
+  "name": "Verity",
+  "description": "An on-chain supply chain finance platform enabling high-density invoice factoring, automated dispute resolution, and smart contract escrow settlements.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
