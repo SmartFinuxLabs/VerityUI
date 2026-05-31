@@ -25,7 +25,7 @@ export interface Invoice {
   };
 }
 
-export type MainRoute = 'landing' | 'auth' | 'dashboard' | 'factoring' | 'disputes' | 'settlement' | 'buyer-workspace' | 'supplier-workspace' | 'investor-workspace';
+export type MainRoute = 'landing' | 'auth' | 'dashboard' | 'factoring' | 'disputes' | 'settlement' | 'buyer-workspace';
 
 export interface AppState {
   invoices: Invoice[];

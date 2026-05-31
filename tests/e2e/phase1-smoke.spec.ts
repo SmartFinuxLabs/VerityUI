@@ -32,10 +32,10 @@ test.describe('Phase 1 smoke scenarios', () => {
     await expect(page.getByRole('heading', { name: /Supplier Overview/i })).toBeVisible();
   });
 
-  test('Buyer registration routes to dispute workflow', async ({ page }) => {
+  test('Buyer registration routes to isolated buyer workspace', async ({ page }) => {
     await navigateToAuth(page);
     await registerInDemoMode(page, 'Buyer');
-    await expect(page.getByRole('heading', { name: /Dispute Response/i })).toBeVisible();
+    await expect(page.getByText(/Buyer Dashboard/i).first()).toBeVisible();
   });
 
   test('Investor factoring flow transitions into settlement', async ({ page }) => {
