@@ -9,7 +9,26 @@ import CreateInvoiceModal from './components/CreateInvoiceModal';
 import FactoringView from './components/FactoringView';
 import DisputeView from './components/DisputeView';
 import SettlementView from './components/SettlementView';
+import AuthPage from './components/AuthPage';
 import { ShieldCheck, ToggleLeft, ToggleRight, Sparkles } from 'lucide-react';
+import { ParticipantRole, clearParticipantAccess, getParticipantAccessSnapshot, hasParticipantAccess } from './lib/participantAuth';
+
+function getFirstRouteForRole(role?: ParticipantRole) {
+  // Phase 1 role-routing baseline.
+  if (role === 'Supplier') {
+    return 'dashboard' as MainRoute;
+  }
+
+  if (role === 'Buyer') {
+    return 'disputes' as MainRoute;
+  }
+
+  if (role === 'Investor') {
+    return 'factoring' as MainRoute;
+  }
+
+  return 'dashboard' as MainRoute;
+}
 
 export default function App() {
   
@@ -28,6 +47,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [preselectedInvoiceId, setPreselectedInvoiceId] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
+  const [authVersion, setAuthVersion] = useState(0);
 
   // Toggle wallet helper
   const handleToggleWallet = () => {
@@ -147,6 +167,29 @@ export default function App() {
     setCurrentRoute('settlement');
   };
 
+  const accessSnapshot = getParticipantAccessSnapshot();
+
+  const handleStartApp = () => {
+    if (hasParticipantAccess()) {
+      setCurrentRoute(getFirstRouteForRole(accessSnapshot?.participantRole));
+      return;
+    }
+
+    setCurrentRoute('auth');
+  };
+
+  const handleAuthenticated = () => {
+    setAuthVersion((version) => version + 1);
+    const snapshot = getParticipantAccessSnapshot();
+    setCurrentRoute(getFirstRouteForRole(snapshot?.participantRole));
+  };
+
+  const handleResetAccess = () => {
+    clearParticipantAccess();
+    setAuthVersion((version) => version + 1);
+    setCurrentRoute('auth');
+  };
+
   // Find targeted invoice for focused pages, fallback to preloaded INV-2026-089 if not found
   const getDisputeInvoice = () => {
     const matched = invoices.find(inv => inv.id === preselectedInvoiceId || inv.status === 'DISPUTED');
@@ -164,7 +207,11 @@ export default function App() {
       {currentRoute === 'landing' ? (
         
         // Render Screen 1: Marketing Landing Page
-        <LandingPage onStartApp={() => setCurrentRoute('dashboard')} />
+        <LandingPage onStartApp={handleStartApp} />
+
+      ) : currentRoute === 'auth' ? (
+
+        <AuthPage onAuthenticated={handleAuthenticated} />
         
       ) : (
         
@@ -194,6 +241,9 @@ export default function App() {
               onToggleWallet={handleToggleWallet}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
+              accessLabel={accessSnapshot ? `${accessSnapshot.provider === 'supabase' ? 'Supabase Auth' : 'Demo Access'} · ${accessSnapshot.email}` : undefined}
+              accessRole={accessSnapshot?.participantRole}
+              onResetAccess={accessSnapshot ? handleResetAccess : undefined}
             />
 
             {/* Core page routers */}
@@ -249,6 +299,9 @@ export default function App() {
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wide mr-1">SWITCH VIEWS:</span>
                 <button onClick={() => setCurrentRoute('landing')} className={`px-2 py-1 rounded cursor-pointer ${currentRoute === 'landing' ? 'bg-[#0052CC] text-white font-semibold' : 'bg-slate-800 text-slate-300 hover:bg-slate-705'}`}>
                   Landing
+                </button>
+                <button onClick={handleStartApp} className={`px-2 py-1 rounded cursor-pointer ${currentRoute === 'auth' ? 'bg-[#0052CC] text-white font-semibold' : 'bg-slate-800 text-slate-300 hover:bg-slate-705'}`}>
+                  Auth
                 </button>
                 <button onClick={() => setCurrentRoute('dashboard')} className={`px-2 py-1 rounded cursor-pointer ${currentRoute === 'dashboard' ? 'bg-[#0052CC] text-white font-semibold' : 'bg-slate-800 text-slate-300 hover:bg-slate-705'}`}>
                   Dashboard

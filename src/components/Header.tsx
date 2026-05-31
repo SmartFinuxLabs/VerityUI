@@ -9,6 +9,9 @@ interface HeaderProps {
   onToggleWallet: () => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  accessLabel?: string;
+  accessRole?: string;
+  onResetAccess?: () => void;
 }
 
 export default function Header({
@@ -17,7 +20,10 @@ export default function Header({
   walletConnected,
   onToggleWallet,
   searchQuery,
-  setSearchQuery
+  setSearchQuery,
+  accessLabel,
+  accessRole,
+  onResetAccess
 }: HeaderProps) {
   
   const [showNotifications, setShowNotifications] = useState(false);
@@ -150,6 +156,27 @@ export default function Header({
         </button>
 
         {/* User Identity Avatar */}
+        {accessRole && (
+          <span className="hidden lg:inline-flex items-center px-2.5 py-1 text-[10px] uppercase tracking-widest font-bold border border-slate-300 text-slate-700 bg-white rounded-sm">
+            {accessRole}
+          </span>
+        )}
+
+        {accessLabel && (
+          <span className="hidden xl:inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-sm">
+            {accessLabel}
+          </span>
+        )}
+
+        {onResetAccess && (
+          <button
+            onClick={onResetAccess}
+            className="px-3 py-1.5 text-[10px] uppercase tracking-widest font-bold border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 transition-colors"
+          >
+            Reset Access
+          </button>
+        )}
+
         <div className="w-8.5 h-8.5 rounded-full bg-[#0052CC]/10 border border-[#0052CC]/25 flex items-center justify-center text-[#0052CC] font-bold text-xs select-none">
           JS
         </div>
