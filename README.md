@@ -18,3 +18,15 @@ View your app in AI Studio: https://ai.studio/apps/187af373-acc2-4b0b-bfc2-e8461
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Phase 1 Smoke Validation
+
+Run the automated role-based smoke scenarios (Supplier, Buyer, Investor settlement continuity):
+
+1. Install Playwright browser runtime:
+   `npx playwright install chromium`
+2. Execute smoke suite:
+   `npm run smoke:test`
+
+HTML report output:
+- `playwright-report/smoke`
