@@ -5,6 +5,7 @@ import { MainRoute } from '../types';
 interface HeaderProps {
   currentRoute: MainRoute;
   setCurrentRoute: (route: MainRoute) => void;
+  workspacePerspective: 'Supplier' | 'Investor';
   walletConnected: boolean;
   onToggleWallet: () => void;
   searchQuery: string;
@@ -17,6 +18,7 @@ interface HeaderProps {
 export default function Header({
   currentRoute,
   setCurrentRoute,
+  workspacePerspective,
   walletConnected,
   onToggleWallet,
   searchQuery,
@@ -36,17 +38,19 @@ export default function Header({
   const hasNew = notifications.some(n => n.status === 'new');
 
   const getRouteTitle = () => {
+    const isInvestor = workspacePerspective === 'Investor';
+
     switch (currentRoute) {
       case 'dashboard':
-        return 'Supplier Overview';
+        return isInvestor ? 'Investor Overview' : 'Supplier Overview';
       case 'factoring':
-        return 'Request Factoring';
+        return isInvestor ? 'Deploy Capital' : 'Request Factoring';
       case 'disputes':
-        return 'Buyer Dispute Resolution';
+        return isInvestor ? 'Risk & Dispute Watch' : 'Buyer Dispute Resolution';
       case 'settlement':
-        return 'Programmatic Invoice Settlement';
+        return isInvestor ? 'Settlement Performance' : 'Programmatic Invoice Settlement';
       default:
-        return 'Smart Treasury Node';
+        return isInvestor ? 'Investor Treasury Node' : 'Smart Treasury Node';
     }
   };
 

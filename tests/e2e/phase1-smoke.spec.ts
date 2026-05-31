@@ -36,17 +36,20 @@ test.describe('Phase 1 smoke scenarios', () => {
     await navigateToAuth(page);
     await registerInDemoMode(page, 'Buyer');
     await expect(page.getByText(/Buyer Dashboard/i).first()).toBeVisible();
+
+    await page.getByRole('button', { name: 'Logout' }).click();
+    await expect(page.getByRole('heading', { name: /Sign In to VerityUI/i })).toBeVisible();
   });
 
-  test('Investor factoring flow transitions into settlement', async ({ page }) => {
+  test('Investor registration routes to merged investor workflow screens', async ({ page }) => {
     await navigateToAuth(page);
     await registerInDemoMode(page, 'Investor');
 
-    await expect(page.getByRole('heading', { name: /Request Factoring/i })).toBeVisible();
+    await expect(page.getByText(/Total Committed/i).first()).toBeVisible();
 
-    await page.getByRole('button', { name: /Submit to Marketplace/i }).click();
+    await page.getByRole('button', { name: /VIEW OPPORTUNITIES/i }).first().click();
 
-    await expect(page.getByRole('heading', { name: /Invoice Settlement/i })).toBeVisible({
+    await expect(page.getByText(/Portfolio Summary/i).first()).toBeVisible({
       timeout: 20_000,
     });
   });

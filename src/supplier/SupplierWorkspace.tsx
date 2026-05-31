@@ -13,6 +13,7 @@ interface SupplierWorkspaceProps {
   initialRoute?: MainRoute;
   accessLabel?: string;
   accessRole?: string;
+  workspacePerspective?: 'Supplier' | 'Investor';
   onResetAccess?: () => void;
 }
 
@@ -20,6 +21,7 @@ export default function SupplierWorkspace({
   initialRoute = 'dashboard',
   accessLabel,
   accessRole,
+  workspacePerspective = 'Supplier',
   onResetAccess,
 }: SupplierWorkspaceProps) {
   const [currentRoute, setCurrentRoute] = useState<MainRoute>(initialRoute);
@@ -184,6 +186,7 @@ export default function SupplierWorkspace({
         <Header
           currentRoute={currentRoute}
           setCurrentRoute={setCurrentRoute}
+          workspacePerspective={workspacePerspective}
           walletConnected={walletConnected}
           onToggleWallet={handleToggleWallet}
           searchQuery={searchQuery}
@@ -195,6 +198,7 @@ export default function SupplierWorkspace({
 
         {currentRoute === 'dashboard' && (
           <DashboardView
+            workspacePerspective={workspacePerspective}
             invoices={invoices}
             availableLiquidity={availableLiquidity}
             onModifyLiquidity={(amount) => setAvailableLiquidity((prev) => Math.max(0, prev + amount))}

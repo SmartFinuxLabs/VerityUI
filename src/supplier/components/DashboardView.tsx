@@ -19,6 +19,7 @@ import {
 import { Invoice, InvoiceStatus, MainRoute } from '../types';
 
 interface DashboardViewProps {
+  workspacePerspective: 'Supplier' | 'Investor';
   invoices: Invoice[];
   availableLiquidity: number;
   onModifyLiquidity: (amount: number) => void;
@@ -33,6 +34,7 @@ interface DashboardViewProps {
 }
 
 export default function DashboardView({
+  workspacePerspective,
   invoices,
   availableLiquidity,
   onModifyLiquidity,
@@ -81,15 +83,21 @@ export default function DashboardView({
     }
   };
 
+  const isInvestor = workspacePerspective === 'Investor';
+  const dashboardTitle = isInvestor ? 'Investor Overview' : 'Supplier Overview';
+  const dashboardSubtitle = isInvestor
+    ? 'Track receivable opportunities, monitor risk signals, and allocate liquidity across verified assets.'
+    : 'Manage active invoices, view financing options, and monitor your decentralized credit rating.';
+
   return (
     <div id="supplier-overview" className="p-6 md:p-10 space-y-8 max-w-7xl mx-auto w-full">
       
       {/* Overview Introductory Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-extrabold tracking-tight text-slate-900">Supplier Overview</h1>
+          <h1 className="text-[28px] font-extrabold tracking-tight text-slate-900">{dashboardTitle}</h1>
           <p className="text-[14px] text-slate-500 mt-1">
-            Manage active invoices, view financing options, and monitor your decentralized credit rating.
+            {dashboardSubtitle}
           </p>
         </div>
         

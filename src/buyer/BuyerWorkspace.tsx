@@ -12,7 +12,7 @@ import InvoiceVerification from './components/InvoiceVerification';
 import ReviewRebuttal from './components/ReviewRebuttal';
 import { INITIAL_INVOICES, INITIAL_FUNDING_REQUESTS, INITIAL_LIQUIDITY } from './data';
 import { Invoice, FundingRequest, LiquidityProfile } from './types';
-import { 
+import {
   Plus, 
   HelpCircle, 
   Search, 
@@ -26,7 +26,17 @@ import {
   ExternalLink 
 } from 'lucide-react';
 
-export default function BuyerWorkspace() {
+interface BuyerWorkspaceProps {
+  accessLabel?: string;
+  accessRole?: string;
+  onResetAccess?: () => void;
+}
+
+export default function BuyerWorkspace({
+  accessLabel,
+  accessRole,
+  onResetAccess,
+}: BuyerWorkspaceProps) {
   // Navigation / Tabs state
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [brandingMode, setBrandingMode] = useState<'finux' | 'verity'>('finux');
@@ -212,7 +222,12 @@ export default function BuyerWorkspace() {
   const getHeaderTitleAndSubtitle = () => {
     switch (activeTab) {
       case 'dashboard':
-        return { title: 'Buyer Dashboard', sub: 'Welcome back, Enterprise Officer. Complete pending ledger clearances.' };
+        return {
+          title: 'Buyer Dashboard',
+          sub: accessRole
+            ? `Welcome back, ${accessRole}. Complete pending ledger clearances.`
+            : 'Welcome back, Enterprise Officer. Complete pending ledger clearances.'
+        };
       case 'invoices':
         return { title: 'Invoices Queue', sub: 'Verify and authorize incoming peer-to-peer invoice assets.' };
       case 'verification-details':
@@ -232,7 +247,10 @@ export default function BuyerWorkspace() {
       case 'compliance':
         return { title: 'Compliance & KYB Registry', sub: 'Regulatory flags and audits.' };
       default:
-        return { title: 'Smart Finux Labs', sub: 'Enterprise financing portal' };
+        return {
+          title: 'Smart Finux Labs',
+          sub: accessLabel ? `${accessLabel} · Enterprise financing portal` : 'Enterprise financing portal'
+        };
     }
   };
 
@@ -270,6 +288,9 @@ export default function BuyerWorkspace() {
           subtitle={headerMeta.sub}
           liquidity={liquidity}
           toggleWalletConnection={handleToggleWallet}
+          accessLabel={accessLabel}
+          accessRole={accessRole}
+          onResetAccess={onResetAccess}
           onSearchChange={(val) => {
             setSearchQuery(val);
             if (activeTab !== 'dashboard' && activeTab !== 'invoices') {

@@ -22,6 +22,9 @@ interface HeaderProps {
   subtitle?: string;
   liquidity: LiquidityProfile;
   toggleWalletConnection: () => void;
+  accessLabel?: string;
+  accessRole?: string;
+  onResetAccess?: () => void;
   onSearchChange?: (val: string) => void;
 }
 
@@ -30,6 +33,9 @@ export default function Header({
   subtitle,
   liquidity,
   toggleWalletConnection,
+  accessLabel,
+  accessRole,
+  onResetAccess,
   onSearchChange,
 }: HeaderProps) {
   const [showWalletMenu, setShowWalletMenu] = React.useState(false);
@@ -178,6 +184,27 @@ export default function Header({
             </div>
           )}
         </div>
+
+        {accessRole && (
+          <span className="hidden lg:inline-flex items-center px-2.5 py-1 text-[10px] uppercase tracking-widest font-bold border border-slate-300 text-slate-700 bg-white rounded-sm">
+            {accessRole}
+          </span>
+        )}
+
+        {accessLabel && (
+          <span className="hidden xl:inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-sm">
+            {accessLabel}
+          </span>
+        )}
+
+        {onResetAccess && (
+          <button
+            onClick={onResetAccess}
+            className="px-3 py-1.5 text-[10px] uppercase tracking-widest font-bold border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 transition-colors"
+          >
+            Logout
+          </button>
+        )}
 
         {/* User Account Avatar */}
         <div id="user-profile-avatar-container" className="flex items-center gap-2 select-none pointer-events-none">

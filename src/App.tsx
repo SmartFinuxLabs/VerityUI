@@ -70,7 +70,11 @@ export default function App() {
 
       ) : currentRoute === 'buyer-workspace' ? (
 
-        <BuyerWorkspace />
+        <BuyerWorkspace
+          accessLabel={accessSnapshot ? `${accessSnapshot.provider === 'supabase' ? 'Supabase Auth' : 'Demo Access'} · ${accessSnapshot.email}` : undefined}
+          accessRole={accessSnapshot?.participantRole}
+          onResetAccess={accessSnapshot ? handleResetAccess : undefined}
+        />
 
       ) : currentRoute === 'investor-workspace' ? (
 
