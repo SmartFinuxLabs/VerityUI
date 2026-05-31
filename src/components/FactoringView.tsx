@@ -90,9 +90,9 @@ export default function FactoringView({
       // Call parent dispatch to convert chosen invoice statuses to 'FACTORED'
       onSubmitFactoringBatch(selectedIds, estimatedAdvance);
       
-      // Automatically navigate back to dashboard after 2.5 seconds
+      // Continue the investor flow into settlement after funding is confirmed.
       setTimeout(() => {
-        onSelectRoute('dashboard');
+        onSelectRoute('settlement');
       }, 2500);
 
     }, 2000);
@@ -389,7 +389,7 @@ export default function FactoringView({
           <div>
             <p className="font-extrabold text-sm">Financing Request Submitted!</p>
             <p className="text-[11.5px] text-emerald-50/90 mt-0.5 leading-tight">
-              Invoiced assets have been registered inside the escrow pool. Returning to overview...
+              Invoiced assets have been registered inside the escrow pool. Opening settlement workflow...
             </p>
           </div>
         </div>

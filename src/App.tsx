@@ -75,6 +75,8 @@ export default function App() {
 
   // Submit invoices for early factoring funding
   const handleSubmitFactoringBatch = (invoiceIds: string[], totalAdvance: number) => {
+    const focusInvoiceId = invoiceIds[0] ?? null;
+
     setInvoices(prevInvoices => 
       prevInvoices.map(inv => {
         if (invoiceIds.includes(inv.id)) {
@@ -92,7 +94,7 @@ export default function App() {
     setAvailableLiquidity(prev => prev + totalAdvance);
     const addedCredit = Math.min(850, onChainCredit + 15);
     setOnChainCredit(addedCredit);
-    setPreselectedInvoiceId(null);
+    setPreselectedInvoiceId(focusInvoiceId);
   };
 
   // Submit dispute responses (e.g. adjust prices or launch rebuttal)
