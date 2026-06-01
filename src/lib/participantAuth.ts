@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 
 export type ParticipantRole = 'Supplier' | 'Buyer' | 'Investor';
+export type PartyType = 'SUPPLIER' | 'BUYER' | 'INVESTOR';
 
 export interface ParticipantAccessSnapshot {
   provider: 'supabase' | 'demo';
@@ -17,6 +18,22 @@ const PARTICIPANT_ACCESS_KEY = 'verityui_participant_access';
 function normalizeParticipantRole(value: unknown): ParticipantRole | undefined {
   if (value === 'Supplier' || value === 'Buyer' || value === 'Investor') {
     return value;
+  }
+
+  return undefined;
+}
+
+function normalizePartyType(value: unknown): ParticipantRole | undefined {
+  if (value === 'SUPPLIER') {
+    return 'Supplier';
+  }
+
+  if (value === 'BUYER') {
+    return 'Buyer';
+  }
+
+  if (value === 'INVESTOR') {
+    return 'Investor';
   }
 
   return undefined;
@@ -64,8 +81,15 @@ export function storeSupabaseSession(
   options?: { participantRole?: ParticipantRole; entityName?: string }
 ) {
   const metadata = session.user.user_metadata ?? {};
-  const participantRole = options?.participantRole ?? normalizeParticipantRole(metadata.participantRole);
-  const entityName = options?.entityName ?? (typeof metadata.entityName === 'string' ? metadata.entityName : undefined);
+  const participantRole =
+    options?.participantRole ?? normalizeParticipantRole(metadata.participantRole) ?? normalizePartyType(metadata.party_type);
+  const entityName =
+    options?.entityName ??
+    (typeof metadata.entityName === 'string'
+      ? metadata.entityName
+      : typeof metadata.organization_name === 'string'
+        ? metadata.organization_name
+        : undefined);
 
   const snapshot: ParticipantAccessSnapshot = {
     provider: 'supabase',

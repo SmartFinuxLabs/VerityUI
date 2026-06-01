@@ -140,9 +140,9 @@ export default function FactoringView({
         </div>
 
         <div className="py-4 md:py-0 md:pl-6">
-          <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider label-caps mb-1 flex items-center gap-1">
+          <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider label-caps mb-1 flex items-center gap-1" title="90% of total Gross Value">
             ESTIMATED ADVANCE
-            <HelpCircle className="w-3 h-3 text-slate-300" title="90% of total Gross Value" />
+            <HelpCircle className="w-3 h-3 text-slate-300" aria-hidden="true" />
           </span>
           <p className="text-2xl font-extrabold text-[#0052CC] font-mono">
             USDC {estimatedAdvance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -151,9 +151,9 @@ export default function FactoringView({
         </div>
 
         <div className="pt-4 md:pt-0 md:pl-6">
-          <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider label-caps mb-1 flex items-center gap-1">
+          <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider label-caps mb-1 flex items-center gap-1" title="0.5% platform protocol cost">
             EST. PLATFORM FEE
-            <HelpCircle className="w-3 h-3 text-slate-300" title="0.5% platform protocol cost" />
+            <HelpCircle className="w-3 h-3 text-slate-300" aria-hidden="true" />
           </span>
           <p className="text-2xl font-extrabold text-slate-900 font-mono">
             USDC {estimatedPlatformFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -294,9 +294,9 @@ export default function FactoringView({
               </div>
 
               <div className="flex justify-between items-center text-slate-500">
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1" title="The pre-approved leverage percentage">
                   Advance Rate
-                  <HelpCircle className="w-3.5 h-3.5 text-slate-300" title="The pre-approved leverage percentage" />
+                  <HelpCircle className="w-3.5 h-3.5 text-slate-300" aria-hidden="true" />
                 </span>
                 <span className="font-bold text-slate-800">90.00%</span>
               </div>
