@@ -14,14 +14,14 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report/smoke', open: 'never' }],
   ],
   use: {
-    baseURL: 'http://127.0.0.1:3000',
+    baseURL: 'http://127.0.0.1:41731',
     headless: true,
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'npm run dev',
-    port: 3000,
-    reuseExistingServer: !process.env.CI,
+    command: 'VITE_DISABLE_SUPABASE_AUTH=1 vite --port=41731 --host=127.0.0.1',
+    port: 41731,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

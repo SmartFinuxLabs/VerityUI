@@ -8,7 +8,8 @@ const supabaseAnonKey =
   (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ??
   (import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY as string | undefined);
 
-const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+const isSupabaseDisabled = (import.meta.env.VITE_DISABLE_SUPABASE_AUTH as string | undefined) === '1';
+const isSupabaseConfigured = !isSupabaseDisabled && Boolean(supabaseUrl && supabaseAnonKey);
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl as string, supabaseAnonKey as string)
