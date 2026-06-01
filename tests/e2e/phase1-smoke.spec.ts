@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function navigateToAuth(page: Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'START FREE TRIAL' }).first().click();
+  await page.getByRole('button', { name: /^Portal Terminal$/i }).click();
   await expect(page.getByRole('heading', { name: /Sign In to VerityUI/i })).toBeVisible();
 }
 
