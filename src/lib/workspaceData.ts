@@ -3,7 +3,7 @@ import type { FundingRequest, Invoice as BuyerInvoice, LiquidityProfile } from '
 import { initialInvoices as INVESTOR_INVOICES, initialLedger, initialSettlements } from '../investor/data';
 import type { Invoice as InvestorInvoice, LedgerRow, Settlement } from '../investor/types';
 import { INITIAL_INVOICES as SUPPLIER_INVOICES } from '../supplier/data';
-import type { Invoice as SupplierInvoice } from '../supplier/types';
+import type { Invoice as SupplierInvoice, RegisteredBuyerOption } from '../supplier/types';
 import { verityApi } from './apiClient';
 import { getParticipantAccessSnapshot, type ParticipantAccessSnapshot } from './participantAuth';
 import { isDemoMode } from './runtimeMode';
@@ -15,12 +15,24 @@ export interface BuyerWorkspaceState {
 }
 
 export interface SupplierWorkspaceState {
+  supplierOrganizationId: string | null;
   invoices: SupplierInvoice[];
+  registeredBuyers: RegisteredBuyerOption[];
   availableLiquidity: number;
   escrowValue: number;
   onChainCredit: number;
   walletConnected: boolean;
   walletAddress: string | null;
+}
+
+export interface SupplierAnalyticsState {
+  volumeByStatus: { status: string; count: number; totalAmount: number }[];
+  timeTrends: { period: string; createdVolume: number; settledVolume: number }[];
+  cashFlowProjections: { date: string; expectedAmount: number; factoredAmount: number }[];
+  financialHealth: {
+    disputeRatio: number;
+    onChainCreditScore: number;
+  };
 }
 
 export interface InvestorWorkspaceState {
@@ -68,12 +80,41 @@ export function getBuyerDemoWorkspaceState(): BuyerWorkspaceState {
 
 export function getSupplierDemoWorkspaceState(): SupplierWorkspaceState {
   return {
+    supplierOrganizationId: 'demo-supplier-techgear',
     invoices: SUPPLIER_INVOICES,
+    registeredBuyers: [
+      { buyerId: 'demo-buyer-acme-global', buyerName: 'Acme Corp Global', buyerStatus: 'ACTIVE' },
+      { buyerId: 'demo-buyer-global-mfg', buyerName: 'Global Manufacturing Corp', buyerStatus: 'ACTIVE' },
+      { buyerId: 'demo-buyer-stark', buyerName: 'Stark Industries', buyerStatus: 'ACTIVE' },
+      { buyerId: 'demo-buyer-retail', buyerName: 'Retail Giant', buyerStatus: 'ACTIVE' },
+    ],
     availableLiquidity: 215500,
     escrowValue: 145000,
     onChainCredit: 820,
     walletConnected: true,
     walletAddress: '0x71C8384f9E58A49dfF0bd083B20B2F5b48B64F9E',
+  };
+}
+
+export function getSupplierDemoAnalyticsState(): SupplierAnalyticsState {
+  return {
+    volumeByStatus: [
+      { status: 'PENDING', count: 2, totalAmount: 35000 },
+      { status: 'ACCEPTED', count: 3, totalAmount: 75000 },
+      { status: 'FACTORED', count: 1, totalAmount: 50000 },
+    ],
+    timeTrends: [
+      { period: '2026-05', createdVolume: 120000, settledVolume: 80000 },
+      { period: '2026-06', createdVolume: 160000, settledVolume: 40000 },
+    ],
+    cashFlowProjections: [
+      { date: '2026-07-15', expectedAmount: 45000, factoredAmount: 20000 },
+      { date: '2026-08-01', expectedAmount: 30000, factoredAmount: 30000 },
+    ],
+    financialHealth: {
+      disputeRatio: 0.05,
+      onChainCreditScore: 820,
+    },
   };
 }
 
@@ -109,12 +150,28 @@ export function getSupplierWorkspaceInitialState() {
   return isDemoWorkspaceDataMode()
     ? getSupplierDemoWorkspaceState()
     : {
+        supplierOrganizationId: null,
         invoices: [],
+        registeredBuyers: [],
         availableLiquidity: 0,
         escrowValue: 0,
         onChainCredit: 0,
         walletConnected: false,
         walletAddress: null,
+      };
+}
+
+export function getSupplierAnalyticsInitialState(): SupplierAnalyticsState {
+  return isDemoWorkspaceDataMode()
+    ? getSupplierDemoAnalyticsState()
+    : {
+        volumeByStatus: [],
+        timeTrends: [],
+        cashFlowProjections: [],
+        financialHealth: {
+          disputeRatio: 0,
+          onChainCreditScore: 0,
+        },
       };
 }
 
@@ -164,12 +221,30 @@ export async function loadSupplierWorkspaceState(
 
   const { data } = await verityApi.getSupplierWorkspaceState(requireApiToken(snapshot));
   return {
+    supplierOrganizationId: data?.supplierOrganizationId ?? null,
     invoices: data?.invoices ?? [],
+    registeredBuyers: data?.registeredBuyers ?? [],
     availableLiquidity: data?.availableLiquidity ?? 0,
     escrowValue: data?.escrowValue ?? 0,
     onChainCredit: data?.onChainCredit ?? 0,
     walletConnected: data?.walletConnected ?? false,
     walletAddress: data?.walletAddress ?? null,
+  };
+}
+
+export async function loadSupplierAnalytics(
+  snapshot: ParticipantAccessSnapshot | null = getParticipantAccessSnapshot()
+): Promise<SupplierAnalyticsState> {
+  if (isDemoWorkspaceDataMode(snapshot)) {
+    return getSupplierDemoAnalyticsState();
+  }
+
+  const { data } = await verityApi.getSupplierAnalytics(requireApiToken(snapshot));
+  return {
+    volumeByStatus: data?.volumeByStatus ?? [],
+    timeTrends: data?.timeTrends ?? [],
+    cashFlowProjections: data?.cashFlowProjections ?? [],
+    financialHealth: data?.financialHealth ?? { disputeRatio: 0, onChainCreditScore: 0 },
   };
 }
 

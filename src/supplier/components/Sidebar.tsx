@@ -37,9 +37,9 @@ export default function Sidebar({
       icon: LayoutDashboard 
     },
     { 
-      id: 'settlement' as MainRoute, 
-      label: 'Invoices', 
-      detail: 'Settlement UI',
+      id: 'invoice-queue' as MainRoute, 
+      label: 'Invoice Queue', 
+      detail: 'Receivables',
       icon: Receipt 
     },
     { 

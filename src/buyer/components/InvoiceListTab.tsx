@@ -47,9 +47,6 @@ export default function InvoiceListTab({
   // Success signature confirmation alert after signing
   const [signatureSuccess, setSignatureSuccess] = useState<string | null>(null);
 
-  // Selected quick-review invoice body
-  const currentInvoice = invoices.find(inv => inv.id === selectedReviewId) || invoices[0];
-
   const handleQuickRowClick = (id: string) => {
     setSelectedReviewId(id);
     setConfirmReceipt(false);
@@ -73,6 +70,36 @@ export default function InvoiceListTab({
   // Helper values for headers
   const pendingInvoices = invoices.filter(inv => inv.status === 'PENDING_VERIFICATION');
   const approvedInvoicesVal = invoices.filter(inv => inv.status === 'VERIFIED').reduce((s, x) => s + x.amount, 0);
+
+  if (invoices.length === 0) {
+    return (
+      <div id="invoice-list-tab-root" className="space-y-6">
+        <div id="invoices-header-bar" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-sans">
+              Invoice Verification
+            </h1>
+            <p className="text-slate-500 text-xs mt-1 font-sans">
+              Review and approve pending supplier invoices for your buyer organization.
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white border border-[#E5E7EB] rounded-xl p-8 text-center shadow-xs">
+          <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto text-slate-400">
+            <FileText className="w-6 h-6" />
+          </div>
+          <h2 className="mt-4 font-sans text-lg font-extrabold text-slate-900">No invoices in queue</h2>
+          <p className="mt-2 text-sm text-slate-500 max-w-xl mx-auto leading-relaxed">
+            Supplier invoices will appear here once they are submitted to your buyer organization.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Selected quick-review invoice body
+  const currentInvoice = invoices.find(inv => inv.id === selectedReviewId) || invoices[0];
 
   return (
     <div id="invoice-list-tab-root" className="space-y-6">

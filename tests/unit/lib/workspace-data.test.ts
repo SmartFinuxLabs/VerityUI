@@ -102,6 +102,7 @@ describe('workspace data services', () => {
       mockFetchJson(200, {
         data: {
           invoices: [],
+          registeredBuyers: [{ buyerId: 'buyer-org-1', buyerName: 'Northstar Buyer LLC', buyerStatus: 'ACTIVE' }],
           availableLiquidity: 0,
           escrowValue: 0,
           onChainCredit: 0,
@@ -114,6 +115,9 @@ describe('workspace data services', () => {
     const state = await loadSupplierWorkspaceState();
 
     expect(state.invoices).toEqual([]);
+    expect(state.registeredBuyers).toEqual([
+      { buyerId: 'buyer-org-1', buyerName: 'Northstar Buyer LLC', buyerStatus: 'ACTIVE' },
+    ]);
     expect(state.invoices).not.toEqual(SUPPLIER_INVOICES);
     expect(state.walletConnected).toBe(false);
   });

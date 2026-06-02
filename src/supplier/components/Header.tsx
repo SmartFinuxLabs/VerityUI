@@ -43,6 +43,8 @@ export default function Header({
     switch (currentRoute) {
       case 'dashboard':
         return isInvestor ? 'Investor Overview' : 'Supplier Overview';
+      case 'invoice-queue':
+        return isInvestor ? 'Invoice Portfolio' : 'Invoice Queue';
       case 'factoring':
         return isInvestor ? 'Deploy Capital' : 'Request Factoring';
       case 'disputes':

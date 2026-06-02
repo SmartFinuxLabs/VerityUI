@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { X, Upload, CheckCircle2, ShieldAlert, Sparkles, Loader2, FileCheck } from 'lucide-react';
-import { Invoice } from '../types';
+import { Invoice, RegisteredBuyerOption } from '../types';
 
 interface CreateInvoiceModalProps {
   onClose: () => void;
-  onSubmitInvoice: (invoice: Omit<Invoice, 'status'>) => void;
+  onSubmitInvoice: (invoice: Omit<Invoice, 'status'>) => void | Promise<void>;
+  buyerOptions: RegisteredBuyerOption[];
 }
 
-export default function CreateInvoiceModal({ onClose, onSubmitInvoice }: CreateInvoiceModalProps) {
+export default function CreateInvoiceModal({ onClose, onSubmitInvoice, buyerOptions }: CreateInvoiceModalProps) {
   
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [invoiceId, setInvoiceId] = useState(`INV-2026-${Math.floor(1000 + Math.random() * 9000)}`);
-  const [buyer, setBuyer] = useState('Acme Corp Global');
+  const [buyerId, setBuyerId] = useState(buyerOptions[0]?.buyerId ?? '');
   const [amountStr, setAmountStr] = useState('50000.00');
   const [maturityDate, setMaturityDate] = useState('Aug 14, 2026');
   const [itemDescription, setItemDescription] = useState('Industrial Sensors Type-X');
@@ -19,6 +20,7 @@ export default function CreateInvoiceModal({ onClose, onSubmitInvoice }: CreateI
   const [fileName, setFileName] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   // Drag and drop event states
   const [dragActive, setDragActive] = useState(false);
@@ -59,28 +61,49 @@ export default function CreateInvoiceModal({ onClose, onSubmitInvoice }: CreateI
     }, 1500);
   };
 
-  const executeSubmit = () => {
-    // Go to Verification Loading state
-    setIsVerifying(true);
-    setStep(2);
-    
-    setTimeout(() => {
-      // Advance to Confirmation success step
-      setStep(3);
-      setIsVerifying(false);
-    }, 2000);
-  };
+  const buildInvoiceSubmission = () => {
+    const selectedBuyer = buyerOptions.find((option) => option.buyerId === buyerId);
 
-  const handleFinalConfirm = () => {
-    onSubmitInvoice({
+    if (!selectedBuyer) return null;
+
+    return {
       id: invoiceId,
-      buyer,
+      buyerId: selectedBuyer.buyerId,
+      buyer: selectedBuyer.buyerName,
       amount: parseFloat(amountStr) || 25000,
       maturityDate,
       originalQty: 500,
       unitPrice: 150,
       itemDescription
-    });
+    } satisfies Omit<Invoice, 'status'>;
+  };
+
+  const executeSubmit = () => {
+    const invoiceSubmission = buildInvoiceSubmission();
+    if (!invoiceSubmission) return;
+
+    // Go to Verification Loading state
+    setIsVerifying(true);
+    setSubmitError('');
+    setStep(2);
+    
+    setTimeout(() => {
+      void (async () => {
+        try {
+          await onSubmitInvoice(invoiceSubmission);
+          // Advance to Confirmation success step only after persistence completes.
+          setStep(3);
+        } catch (error) {
+          setStep(1);
+          setSubmitError(error instanceof Error ? error.message : 'Invoice submission failed.');
+        } finally {
+          setIsVerifying(false);
+        }
+      })();
+    }, 2000);
+  };
+
+  const handleFinalConfirm = () => {
     onClose();
   };
 
@@ -232,17 +255,31 @@ export default function CreateInvoiceModal({ onClose, onSubmitInvoice }: CreateI
 
                 {/* Buyer selection map */}
                 <div className="space-y-1">
-                  <span className="block text-[11.5px] font-bold text-slate-600">Buyer Selection</span>
+                  <label htmlFor="buyer-selection" className="block text-[11.5px] font-bold text-slate-600">
+                    Buyer Selection
+                  </label>
                   <select
-                    value={buyer}
-                    onChange={(e) => setBuyer(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0052CC] rounded-[6px] px-3 py-2 text-[13px] font-semibold cursor-pointer"
+                    id="buyer-selection"
+                    value={buyerId}
+                    onChange={(e) => setBuyerId(e.target.value)}
+                    disabled={buyerOptions.length === 0}
+                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0052CC] rounded-[6px] px-3 py-2 text-[13px] font-semibold cursor-pointer disabled:cursor-not-allowed disabled:text-slate-400"
                   >
-                    <option value="Acme Corp Global">Acme Corp Global</option>
-                    <option value="Global Manufacturing Corp">Global Manufacturing Corp</option>
-                    <option value="Stark Industries">Stark Industries</option>
-                    <option value="Retail Giant">Retail Giant</option>
+                    {buyerOptions.length === 0 ? (
+                      <option value="">No registered buyers available</option>
+                    ) : (
+                      buyerOptions.map((option) => (
+                        <option key={option.buyerId} value={option.buyerId}>
+                          {option.buyerName}
+                        </option>
+                      ))
+                    )}
                   </select>
+                  {buyerOptions.length === 0 && (
+                    <p className="text-[11px] text-amber-600 font-semibold">
+                      No registered buyer organizations are available from Verity database.
+                    </p>
+                  )}
                 </div>
 
                 {/* Amount in USDC */}
@@ -271,6 +308,12 @@ export default function CreateInvoiceModal({ onClose, onSubmitInvoice }: CreateI
                     className="w-full bg-slate-50 border border-slate-250 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0052CC] rounded-[6px] px-3 py-2 text-[13px] font-semibold"
                   />
                 </div>
+
+                {submitError && (
+                  <div className="rounded-[6px] border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">
+                    {submitError}
+                  </div>
+                )}
 
               </div>
 
@@ -331,7 +374,8 @@ export default function CreateInvoiceModal({ onClose, onSubmitInvoice }: CreateI
               <button 
                 type="button"
                 onClick={executeSubmit}
-                className="bg-[#0052CC] hover:bg-[#003D9B] text-white text-xs font-bold px-5 py-2.5 rounded-[6px] tracking-wide transition-all cursor-pointer"
+                disabled={buyerOptions.length === 0}
+                className="bg-[#0052CC] hover:bg-[#003D9B] text-white text-xs font-bold px-5 py-2.5 rounded-[6px] tracking-wide transition-all cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed"
               >
                 Verify & Submit
               </button>

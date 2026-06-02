@@ -227,9 +227,9 @@ export default function BuyerWorkspace({
   const filteredInvoices = invoices.filter(inv => {
     const term = searchQuery.toLowerCase();
     return (
-      inv.supplierName.toLowerCase().includes(term) ||
+      (inv.supplierName ?? '').toLowerCase().includes(term) ||
       inv.id.toLowerCase().includes(term) ||
-      inv.supplierId.toLowerCase().includes(term)
+      (inv.supplierId ?? '').toLowerCase().includes(term)
     );
   });
 
@@ -381,7 +381,7 @@ export default function BuyerWorkspace({
             />
           )}
 
-          {activeTab === 'verification-details' && (
+          {activeTab === 'verification-details' && currentInvoice && (
             <InvoiceVerification
               invoice={currentInvoice}
               liquidity={liquidity}
@@ -391,7 +391,7 @@ export default function BuyerWorkspace({
             />
           )}
 
-          {activeTab === 'review-rebuttal' && (
+          {activeTab === 'review-rebuttal' && currentInvoice && (
             <ReviewRebuttal
               invoice={currentInvoice}
               onBack={() => setActiveTab('invoices')}

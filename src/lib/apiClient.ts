@@ -1,6 +1,6 @@
 import type { ParticipantRole, PartyType } from './participantAuth';
 import type { Invoice as BuyerInvoice, FundingRequest, LiquidityProfile } from '../buyer/types';
-import type { Invoice as SupplierInvoice } from '../supplier/types';
+import type { Invoice as SupplierInvoice, RegisteredBuyerOption } from '../supplier/types';
 import type { Invoice as InvestorInvoice, LedgerRow, Settlement } from '../investor/types';
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v1').replace(/\/$/, '');
@@ -30,11 +30,37 @@ export interface BuyerWorkspaceApiState {
 
 export interface SupplierWorkspaceApiState {
   invoices?: SupplierInvoice[];
+  registeredBuyers?: RegisteredBuyerOption[];
+  supplierOrganizationId?: string | null;
   availableLiquidity?: number;
   escrowValue?: number;
   onChainCredit?: number;
   walletConnected?: boolean;
   walletAddress?: string | null;
+}
+
+export interface SupplierAnalyticsApiState {
+  volumeByStatus?: { status: string; count: number; totalAmount: number }[];
+  timeTrends?: { period: string; createdVolume: number; settledVolume: number }[];
+  cashFlowProjections?: { date: string; expectedAmount: number; factoredAmount: number }[];
+  financialHealth?: {
+    disputeRatio: number;
+    onChainCreditScore: number;
+  };
+}
+
+export interface CreateInvoicePayload {
+  relationshipId?: string;
+  supplierId: string;
+  buyerId: string;
+  invoiceNumber: string;
+  issueDate: string;
+  dueDate: string;
+  currency: 'USDC';
+  grossAmount: number;
+  acceptedAmount?: number;
+  sourceSystemReference: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface InvestorWorkspaceApiState {
@@ -139,6 +165,24 @@ export const verityApi = {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+    });
+  },
+
+  getSupplierAnalytics(accessToken: string) {
+    return requestApi<{ data?: SupplierAnalyticsApiState }>('/workspaces/supplier/analytics', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+  },
+
+  createInvoice(accessToken: string, payload: CreateInvoicePayload) {
+    return requestApi<{ data?: unknown }>('/invoices', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
     });
   },
 

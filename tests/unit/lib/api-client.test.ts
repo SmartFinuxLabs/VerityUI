@@ -92,4 +92,43 @@ describe('verityApi client functions', () => {
       })
     );
   });
+
+  it('posts supplier invoices with bearer authorization', async () => {
+    const fetchMock = mockFetchJson(201, { data: { id: 'invoice-1' } });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await verityApi.createInvoice('supplier-token', {
+      supplierId: 'supplier-org-1',
+      buyerId: 'buyer-org-1',
+      invoiceNumber: 'INV-2026-001',
+      issueDate: '2026-06-02',
+      dueDate: '2026-07-02',
+      currency: 'USDC',
+      grossAmount: 1200,
+      sourceSystemReference: 'INV-2026-001',
+      metadata: { buyerName: 'Northstar Buyer LLC' },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:8080/api/v1/invoices',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer supplier-token',
+          'Content-Type': 'application/json',
+        }),
+        body: JSON.stringify({
+          supplierId: 'supplier-org-1',
+          buyerId: 'buyer-org-1',
+          invoiceNumber: 'INV-2026-001',
+          issueDate: '2026-06-02',
+          dueDate: '2026-07-02',
+          currency: 'USDC',
+          grossAmount: 1200,
+          sourceSystemReference: 'INV-2026-001',
+          metadata: { buyerName: 'Northstar Buyer LLC' },
+        }),
+      })
+    );
+  });
 });

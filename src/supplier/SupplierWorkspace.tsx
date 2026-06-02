@@ -1,13 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { Invoice, MainRoute, InvoiceStatus } from './types';
+import React, { useEffect, useRef, useState } from 'react';
+import { Invoice, MainRoute, InvoiceStatus, RegisteredBuyerOption } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import DashboardView from './components/DashboardView';
 import CreateInvoiceModal from './components/CreateInvoiceModal';
 import FactoringView from './components/FactoringView';
+import InvoiceQueueView from './components/InvoiceQueueView';
 import DisputeView from './components/DisputeView';
 import SettlementView from './components/SettlementView';
 import { getSupplierWorkspaceInitialState, isDemoWorkspaceDataMode, loadSupplierWorkspaceState } from '../lib/workspaceData';
+import { verityApi } from '../lib/apiClient';
+import { getParticipantAccessSnapshot } from '../lib/participantAuth';
 
 interface SupplierWorkspaceProps {
   initialRoute?: MainRoute;
@@ -26,7 +29,12 @@ export default function SupplierWorkspace({
 }: SupplierWorkspaceProps) {
   const initialWorkspaceState = getSupplierWorkspaceInitialState();
   const [currentRoute, setCurrentRoute] = useState<MainRoute>(initialRoute);
+  const [supplierOrganizationId, setSupplierOrganizationId] = useState<string | null>(
+    initialWorkspaceState.supplierOrganizationId
+  );
+  const supplierOrganizationIdRef = useRef<string | null>(initialWorkspaceState.supplierOrganizationId);
   const [invoices, setInvoices] = useState<Invoice[]>(initialWorkspaceState.invoices);
+  const [registeredBuyers, setRegisteredBuyers] = useState<RegisteredBuyerOption[]>(initialWorkspaceState.registeredBuyers);
   const [availableLiquidity, setAvailableLiquidity] = useState<number>(initialWorkspaceState.availableLiquidity);
   const [escrowValue, setEscrowValue] = useState<number>(initialWorkspaceState.escrowValue);
   const [onChainCredit, setOnChainCredit] = useState<number>(initialWorkspaceState.onChainCredit);
@@ -46,7 +54,10 @@ export default function SupplierWorkspace({
     loadSupplierWorkspaceState()
       .then((state) => {
         if (!isMounted) return;
+        supplierOrganizationIdRef.current = state.supplierOrganizationId;
+        setSupplierOrganizationId(state.supplierOrganizationId);
         setInvoices(state.invoices);
+        setRegisteredBuyers(state.registeredBuyers);
         setAvailableLiquidity(state.availableLiquidity);
         setEscrowValue(state.escrowValue);
         setOnChainCredit(state.onChainCredit);
@@ -76,7 +87,26 @@ export default function SupplierWorkspace({
     }
   };
 
-  const handleAddInvoice = (newInvoice: Omit<Invoice, 'status'>) => {
+  const refreshSupplierWorkspace = async () => {
+    const refreshedState = await loadSupplierWorkspaceState();
+    supplierOrganizationIdRef.current = refreshedState.supplierOrganizationId;
+    setSupplierOrganizationId(refreshedState.supplierOrganizationId);
+    setInvoices(refreshedState.invoices);
+    setRegisteredBuyers(refreshedState.registeredBuyers);
+    setAvailableLiquidity(refreshedState.availableLiquidity);
+    setEscrowValue(refreshedState.escrowValue);
+    setOnChainCredit(refreshedState.onChainCredit);
+    setWalletConnected(refreshedState.walletConnected);
+    setWalletAddress(refreshedState.walletAddress);
+  };
+
+  const toApiDate = (value: string, fallback: Date) => {
+    const timestamp = Date.parse(value);
+    const date = Number.isNaN(timestamp) ? fallback : new Date(timestamp);
+    return date.toISOString().slice(0, 10);
+  };
+
+  const handleAddInvoice = async (newInvoice: Omit<Invoice, 'status'>) => {
     const fullInvoice: Invoice = {
       ...newInvoice,
       status: 'ACCEPTED',
@@ -92,7 +122,60 @@ export default function SupplierWorkspace({
       },
     };
 
-    setInvoices([fullInvoice, ...invoices]);
+    if (!isDemoWorkspaceDataMode()) {
+      const snapshot = getParticipantAccessSnapshot();
+
+      if (snapshot?.provider !== 'api' || !snapshot.accessToken) {
+        throw new Error('API supplier invoice creation requires a signed-in VerityAPI session.');
+      }
+
+      const activeSupplierOrganizationId = supplierOrganizationIdRef.current ?? supplierOrganizationId;
+
+      if (!activeSupplierOrganizationId) {
+        throw new Error('Register a supplier organization before submitting an MVP invoice.');
+      }
+
+      if (!newInvoice.buyerId) {
+        throw new Error('Select a registered buyer before submitting an MVP invoice.');
+      }
+
+      const now = new Date();
+      const dueDate = toApiDate(newInvoice.maturityDate, new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000));
+
+      await verityApi.createInvoice(snapshot.accessToken, {
+        supplierId: activeSupplierOrganizationId,
+        buyerId: newInvoice.buyerId,
+        invoiceNumber: newInvoice.id,
+        issueDate: now.toISOString().slice(0, 10),
+        dueDate,
+        currency: 'USDC',
+        grossAmount: newInvoice.amount,
+        acceptedAmount: newInvoice.amount,
+        sourceSystemReference: `VERITYUI-${newInvoice.id}`,
+        metadata: {
+          buyerName: newInvoice.buyer,
+          supplierId: activeSupplierOrganizationId,
+          itemDescription: newInvoice.itemDescription,
+          originalQty: newInvoice.originalQty,
+          unitPrice: newInvoice.unitPrice,
+          poNumber: `PO-${newInvoice.id}`,
+          goodsReceiptNumber: `GR-${newInvoice.id}`,
+          walletAddress,
+          lineItems: [
+            {
+              description: newInvoice.itemDescription ?? `Invoice ${newInvoice.id}`,
+              qty: newInvoice.originalQty ?? 1,
+              unitPrice: newInvoice.unitPrice ?? newInvoice.amount,
+              total: newInvoice.amount,
+            },
+          ],
+        },
+      });
+      await refreshSupplierWorkspace();
+      return;
+    }
+
+    setInvoices((prevInvoices) => [fullInvoice, ...prevInvoices]);
   };
 
   const handleSubmitFactoringBatch = (invoiceIds: string[], totalAdvance: number) => {
@@ -201,6 +284,31 @@ export default function SupplierWorkspace({
     return matched || invoices.find((inv) => inv.id === 'INV-2026-089') || invoices[4];
   };
 
+  const EmptyActionState = ({
+    title,
+    body,
+    actionLabel,
+  }: {
+    title: string;
+    body: string;
+    actionLabel: string;
+  }) => (
+    <div className="p-6 md:p-10 max-w-4xl mx-auto w-full">
+      <div className="bg-white border border-slate-200 rounded-[12px] p-8 shadow-3xs">
+        <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-2">Supplier Workspace</p>
+        <h2 className="text-xl font-extrabold text-slate-900">{title}</h2>
+        <p className="text-sm text-slate-500 mt-2 leading-relaxed">{body}</p>
+        <button
+          type="button"
+          onClick={() => setCurrentRoute('dashboard')}
+          className="mt-5 px-4 py-2 bg-[#0052CC] text-white text-xs font-bold uppercase tracking-widest rounded-[6px]"
+        >
+          {actionLabel}
+        </button>
+      </div>
+    </div>
+  );
+
   if (workspaceDataStatus === 'loading') {
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center text-slate-700">
@@ -275,6 +383,17 @@ export default function SupplierWorkspace({
           />
         )}
 
+        {currentRoute === 'invoice-queue' && (
+          <InvoiceQueueView
+            invoices={invoices}
+            searchQuery={searchQuery}
+            onOpenUploadModal={() => setShowUploadModal(true)}
+            onFocusInvoiceForFactoring={handleFocusInvoiceForFactoring}
+            onFocusInvoiceForDispute={handleFocusInvoiceForDispute}
+            onFocusInvoiceForSettlement={handleFocusInvoiceForSettlement}
+          />
+        )}
+
         {currentRoute === 'factoring' && (
           <FactoringView
             invoices={invoices}
@@ -285,24 +404,44 @@ export default function SupplierWorkspace({
         )}
 
         {currentRoute === 'disputes' && (
-          <DisputeView
-            invoice={getDisputeInvoice()}
-            onSelectRoute={setCurrentRoute}
-            onResolveDispute={handleResolveDispute}
-          />
+          getDisputeInvoice() ? (
+            <DisputeView
+              invoice={getDisputeInvoice()}
+              onSelectRoute={setCurrentRoute}
+              onResolveDispute={handleResolveDispute}
+            />
+          ) : (
+            <EmptyActionState
+              title="No buyer disputes require action"
+              body="There are no disputed invoices available for this supplier workspace. New buyer disputes will appear here when invoice verification is contested."
+              actionLabel="Back to dashboard"
+            />
+          )
         )}
 
         {currentRoute === 'settlement' && (
-          <SettlementView
-            invoice={getSettlementInvoice()}
-            onSelectRoute={setCurrentRoute}
-            onExecuteSettlement={handleExecuteSettlement}
-          />
+          getSettlementInvoice() ? (
+            <SettlementView
+              invoice={getSettlementInvoice()}
+              onSelectRoute={setCurrentRoute}
+              onExecuteSettlement={handleExecuteSettlement}
+            />
+          ) : (
+            <EmptyActionState
+              title="No invoices ready for settlement"
+              body="There are no factored or settlement-ready invoices in this supplier workspace. Accepted invoices can be submitted for factoring before settlement is available."
+              actionLabel="Back to dashboard"
+            />
+          )
         )}
       </div>
 
       {showUploadModal && (
-        <CreateInvoiceModal onClose={() => setShowUploadModal(false)} onSubmitInvoice={handleAddInvoice} />
+        <CreateInvoiceModal
+          onClose={() => setShowUploadModal(false)}
+          onSubmitInvoice={handleAddInvoice}
+          buyerOptions={registeredBuyers}
+        />
       )}
     </div>
   );

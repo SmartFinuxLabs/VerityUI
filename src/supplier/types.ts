@@ -2,6 +2,7 @@ export type InvoiceStatus = 'PENDING' | 'ACCEPTED' | 'FACTORED' | 'SETTLED' | 'D
 
 export interface Invoice {
   id: string;
+  buyerId?: string;
   buyer: string;
   amount: number;
   maturityDate: string;
@@ -25,7 +26,15 @@ export interface Invoice {
   };
 }
 
-export type MainRoute = 'landing' | 'auth' | 'dashboard' | 'factoring' | 'disputes' | 'settlement' | 'buyer-workspace';
+export type MainRoute =
+  | 'landing'
+  | 'auth'
+  | 'dashboard'
+  | 'invoice-queue'
+  | 'factoring'
+  | 'disputes'
+  | 'settlement'
+  | 'buyer-workspace';
 
 export interface AppState {
   invoices: Invoice[];
@@ -34,4 +43,10 @@ export interface AppState {
   onChainCredit: number;
   walletConnected: boolean;
   walletAddress: string | null;
+}
+
+export interface RegisteredBuyerOption {
+  buyerId: string;
+  buyerName: string;
+  buyerStatus?: string;
 }
