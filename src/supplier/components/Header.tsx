@@ -55,23 +55,23 @@ export default function Header({
   };
 
   return (
-    <header className="h-[70px] bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 sticky top-0 z-30">
+    <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 sticky top-0 z-30 shadow-[0px_1px_3px_rgba(15,23,42,0.02)]">
       
       {/* Route Location Indicator */}
       <div className="flex items-center gap-6">
         <div className="hidden sm:flex items-center gap-3">
-          <span className="text-[15px] font-bold text-slate-800 tracking-tight">{getRouteTitle()}</span>
+          <span className="text-[15px] font-bold text-slate-900 tracking-tight">{getRouteTitle()}</span>
           <span className="text-slate-300">/</span>
           <nav className="flex items-center gap-4 text-[13px] font-semibold text-slate-500">
             <button 
               onClick={() => setCurrentRoute('dashboard')}
-              className={`hover:text-[#0052CC] ${currentRoute === 'dashboard' ? 'text-[#0052CC]' : ''}`}
+              className={`transition-colors hover:text-[#0052CC] ${currentRoute === 'dashboard' ? 'text-[#0052CC]' : ''}`}
             >
               Overview
             </button>
             <button 
               onClick={() => setCurrentRoute('factoring')}
-              className={`hover:text-[#0052CC] ${currentRoute === 'factoring' ? 'text-[#0052CC]' : ''}`}
+              className={`transition-colors hover:text-[#0052CC] ${currentRoute === 'factoring' ? 'text-[#0052CC]' : ''}`}
             >
               Liquidity Market
             </button>
@@ -92,7 +92,7 @@ export default function Header({
             placeholder="Search verified invoices..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-[6px] pl-9 pr-3 py-1.5 text-[13px] text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0052CC] focus:border-[#0052CC] transition-all"
+            className="w-full bg-slate-50 border border-slate-200 rounded-[6px] pl-9 pr-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0052CC]/15 focus:border-[#0052CC] transition-all"
           />
         </div>
 
@@ -103,7 +103,7 @@ export default function Header({
           className={`flex items-center gap-2.5 px-4 py-2 rounded-[6px] text-[13px] font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
             walletConnected 
               ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 shadow-3xs'
-              : 'bg-[#0052CC] hover:bg-[#003D9B] text-white shadow-xs hover:shadow-subtle'
+              : 'bg-[#0052CC] hover:bg-[#003D9B] text-white shadow-xs hover:shadow-subtle hover:-translate-y-0.5 active:translate-y-0'
           }`}
         >
           <Wallet className={`w-4 h-4 ${walletConnected ? 'text-emerald-600' : 'text-white'}`} />
@@ -175,7 +175,7 @@ export default function Header({
         {onResetAccess && (
           <button
             onClick={onResetAccess}
-            className="px-3 py-1.5 text-[10px] uppercase tracking-widest font-bold border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 transition-colors"
+            className="px-3 py-1.5 text-[10px] uppercase tracking-widest font-bold border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 transition-colors rounded-[6px]"
           >
             Reset Access
           </button>

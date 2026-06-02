@@ -19,7 +19,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'VITE_DISABLE_SUPABASE_AUTH=1 vite --port=41731 --host=127.0.0.1',
+    command: 'VITE_RUN_MODE=demo vite --port=41731 --host=127.0.0.1',
     port: 41731,
     reuseExistingServer: false,
     timeout: 120_000,

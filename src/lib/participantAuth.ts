@@ -1,10 +1,10 @@
-import type { Session } from '@supabase/supabase-js';
+import type { ApiAuthSession } from './apiClient';
 
 export type ParticipantRole = 'Supplier' | 'Buyer' | 'Investor';
 export type PartyType = 'SUPPLIER' | 'BUYER' | 'INVESTOR';
 
 export interface ParticipantAccessSnapshot {
-  provider: 'supabase' | 'demo';
+  provider: 'api' | 'demo';
   email: string;
   participantRole?: ParticipantRole;
   entityName?: string;
@@ -75,12 +75,12 @@ function removeStorageValue() {
   }
 }
 
-export function storeSupabaseSession(
-  session: Session,
+export function storeApiSession(
+  session: ApiAuthSession,
   email?: string,
   options?: { participantRole?: ParticipantRole; entityName?: string }
 ) {
-  const metadata = session.user.user_metadata ?? {};
+  const metadata = session.user.userMetadata ?? {};
   const participantRole =
     options?.participantRole ?? normalizeParticipantRole(metadata.participantRole) ?? normalizePartyType(metadata.party_type);
   const entityName =
@@ -92,13 +92,13 @@ export function storeSupabaseSession(
         : undefined);
 
   const snapshot: ParticipantAccessSnapshot = {
-    provider: 'supabase',
+    provider: 'api',
     email: email ?? session.user.email ?? 'signed-in user',
     participantRole,
     entityName,
-    accessToken: session.access_token,
-    refreshToken: session.refresh_token,
-    expiresAt: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : undefined,
+    accessToken: session.accessToken,
+    refreshToken: session.refreshToken,
+    expiresAt: session.expiresAt,
   };
 
   writeStorageValue(JSON.stringify(snapshot));

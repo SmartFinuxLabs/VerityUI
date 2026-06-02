@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { INITIAL_INVOICES } from './data';
+import React, { useEffect, useState } from 'react';
 import { Invoice, MainRoute, InvoiceStatus } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -8,6 +7,7 @@ import CreateInvoiceModal from './components/CreateInvoiceModal';
 import FactoringView from './components/FactoringView';
 import DisputeView from './components/DisputeView';
 import SettlementView from './components/SettlementView';
+import { getSupplierWorkspaceInitialState, isDemoWorkspaceDataMode, loadSupplierWorkspaceState } from '../lib/workspaceData';
 
 interface SupplierWorkspaceProps {
   initialRoute?: MainRoute;
@@ -24,16 +24,47 @@ export default function SupplierWorkspace({
   workspacePerspective = 'Supplier',
   onResetAccess,
 }: SupplierWorkspaceProps) {
+  const initialWorkspaceState = getSupplierWorkspaceInitialState();
   const [currentRoute, setCurrentRoute] = useState<MainRoute>(initialRoute);
-  const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
-  const [availableLiquidity, setAvailableLiquidity] = useState<number>(215500);
-  const [escrowValue, setEscrowValue] = useState<number>(145000);
-  const [onChainCredit, setOnChainCredit] = useState<number>(820);
-  const [walletConnected, setWalletConnected] = useState<boolean>(true);
-  const [walletAddress, setWalletAddress] = useState<string | null>('0x71C8384f9E58A49dfF0bd083B20B2F5b48B64F9E');
+  const [invoices, setInvoices] = useState<Invoice[]>(initialWorkspaceState.invoices);
+  const [availableLiquidity, setAvailableLiquidity] = useState<number>(initialWorkspaceState.availableLiquidity);
+  const [escrowValue, setEscrowValue] = useState<number>(initialWorkspaceState.escrowValue);
+  const [onChainCredit, setOnChainCredit] = useState<number>(initialWorkspaceState.onChainCredit);
+  const [walletConnected, setWalletConnected] = useState<boolean>(initialWorkspaceState.walletConnected);
+  const [walletAddress, setWalletAddress] = useState<string | null>(initialWorkspaceState.walletAddress);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [preselectedInvoiceId, setPreselectedInvoiceId] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
+  const [workspaceDataStatus, setWorkspaceDataStatus] = useState<'loading' | 'ready' | 'error'>(
+    isDemoWorkspaceDataMode() ? 'ready' : 'loading'
+  );
+  const [workspaceDataError, setWorkspaceDataError] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+
+    loadSupplierWorkspaceState()
+      .then((state) => {
+        if (!isMounted) return;
+        setInvoices(state.invoices);
+        setAvailableLiquidity(state.availableLiquidity);
+        setEscrowValue(state.escrowValue);
+        setOnChainCredit(state.onChainCredit);
+        setWalletConnected(state.walletConnected);
+        setWalletAddress(state.walletAddress);
+        setWorkspaceDataStatus('ready');
+        setWorkspaceDataError('');
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        setWorkspaceDataStatus('error');
+        setWorkspaceDataError(error instanceof Error ? error.message : 'Unable to load supplier workspace data from VerityAPI.');
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleToggleWallet = () => {
     if (walletConnected) {
@@ -168,6 +199,37 @@ export default function SupplierWorkspace({
   const getSettlementInvoice = () => {
     const matched = invoices.find((inv) => inv.id === preselectedInvoiceId || inv.status === 'FACTORED');
     return matched || invoices.find((inv) => inv.id === 'INV-2026-089') || invoices[4];
+  };
+
+  if (workspaceDataStatus === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center text-slate-700">
+        <div className="bg-white border border-slate-200 rounded-[8px] px-6 py-5 shadow-sm">
+          <p className="text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">VerityAPI</p>
+          <p className="text-sm font-bold">Loading supplier workspace data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (workspaceDataStatus === 'error') {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center text-slate-700">
+        <div className="bg-white border border-rose-200 rounded-[8px] px-6 py-5 shadow-sm max-w-md">
+          <p className="text-xs uppercase tracking-widest font-bold text-rose-500 mb-2">VerityAPI data unavailable</p>
+          <p className="text-sm leading-relaxed">{workspaceDataError}</p>
+          {onResetAccess && (
+            <button
+              type="button"
+              onClick={onResetAccess}
+              className="mt-4 px-3 py-2 text-[10px] uppercase tracking-widest font-bold bg-slate-900 text-white"
+            >
+              Reset Access
+            </button>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (

@@ -82,13 +82,13 @@ export default function Sidebar({
   return (
     <aside 
       id="sidebar-container" 
-      className="w-68 border-r border-[#E5E7EB] bg-white flex flex-col h-screen h-sticky top-0 shrink-0 z-30"
+      className="w-[260px] border-r border-slate-200 bg-white flex flex-col h-screen sticky top-0 shrink-0 z-30"
     >
       {/* Brand Header */}
-      <div id="sidebar-header" className="p-5 border-b border-[#E5E7EB] flex flex-col gap-3">
+      <div id="sidebar-header" className="p-6 border-b border-slate-100 flex flex-col gap-3 bg-slate-50/30">
         {brandingMode === 'finux' ? (
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-[#003d9b] flex items-center justify-center text-white font-bold text-lg select-none">
+            <div className="w-9 h-9 rounded-[8px] bg-[#003d9b] flex items-center justify-center text-white font-bold text-lg select-none shadow-sm">
               SF
             </div>
             <div>
@@ -102,7 +102,7 @@ export default function Sidebar({
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-[#0052cc] flex items-center justify-center text-white">
+            <div className="w-9 h-9 rounded-[8px] bg-[#0052cc] flex items-center justify-center text-white shadow-sm">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
@@ -117,7 +117,7 @@ export default function Sidebar({
         )}
 
         {/* Branding Mode Quick Switcher */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-md text-[11px] font-medium mt-1">
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-[6px] text-[11px] font-medium mt-1">
           <button
             id="brand-toggle-finux"
             onClick={() => setBrandingMode('finux')}
@@ -148,7 +148,7 @@ export default function Sidebar({
         <button
           id="btn-new-funding-request"
           onClick={onNewFundingRequest}
-          className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-[#003d9b] hover:bg-[#002e75] active:bg-[#002154] text-white font-sans font-medium text-sm rounded-lg transition-colors shadow-xs"
+          className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-[#003d9b] hover:bg-[#002e75] active:bg-[#002154] text-white font-sans font-semibold text-[13.5px] rounded-[6px] transition-all shadow-xs hover:-translate-y-0.5 active:translate-y-0"
         >
           <Plus className="w-4 h-4" />
           <span>New Funding Request</span>
@@ -165,9 +165,9 @@ export default function Sidebar({
               id={`nav-link-${item.id}`}
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-sans font-medium transition-all group relative ${
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[6px] text-[13.5px] font-sans font-medium transition-all group relative ${
                 isActive 
-                  ? 'bg-[#0052cc]/10 text-[#0052cc]' 
+                  ? 'bg-[#EBF2FF] text-[#0052cc] font-semibold shadow-2xs' 
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
@@ -193,11 +193,11 @@ export default function Sidebar({
       </nav>
 
       {/* Footer Meta Details */}
-      <div className="p-4 border-t border-[#E5E7EB] bg-slate-50/50 space-y-2 text-xs" id="sidebar-footer">
+      <div className="p-4 border-t border-slate-100 bg-[#F8F9FA]/50 space-y-2 text-xs" id="sidebar-footer">
         <button
           id="sidebar-help-center"
           onClick={() => setActiveTab('help')}
-          className="w-full flex items-center gap-3 px-3 py-2 text-slate-500 hover:text-slate-900 font-sans font-medium hover:bg-slate-100/50 rounded-md transition-all text-left"
+          className="w-full flex items-center gap-3 px-3 py-2 text-slate-500 hover:text-slate-900 font-sans font-medium hover:bg-slate-100/50 rounded-[6px] transition-all text-left"
         >
           <HelpCircle className="w-4 h-4 text-slate-400" />
           <span>Help Center</span>
@@ -205,7 +205,7 @@ export default function Sidebar({
         <button
           id="sidebar-compliance"
           onClick={() => setActiveTab('compliance')}
-          className="w-full flex items-center gap-3 px-3 py-2 text-slate-500 hover:text-slate-900 font-sans font-medium hover:bg-slate-100/50 rounded-md transition-all text-left"
+          className="w-full flex items-center gap-3 px-3 py-2 text-slate-500 hover:text-slate-900 font-sans font-medium hover:bg-slate-100/50 rounded-[6px] transition-all text-left"
         >
           <ShieldAlert className="w-4 h-4 text-slate-400" />
           <span>Compliance</span>

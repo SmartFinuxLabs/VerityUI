@@ -11,6 +11,7 @@ async function registerInDemoMode(
   role: 'Supplier' | 'Buyer' | 'Investor'
 ) {
   await page.getByRole('button', { name: 'Register' }).click();
+  await page.getByLabel('Full Name').fill(`${role} Smoke User`);
   await page.getByLabel('Entity Name').fill(`${role} Entity`);
   await page.getByLabel('Participant Role').selectOption(role);
   await page.getByLabel('Work Email').fill(`${role.toLowerCase()}+${Date.now()}@phase1-smoke.test`);

@@ -57,13 +57,13 @@ export default function Sidebar({
   ];
 
   return (
-    <aside id="sidebar-navigation" className="w-[260px] bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 h-screen sticky top-0">
+    <aside id="sidebar-navigation" className="w-[260px] bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 h-screen sticky top-0 z-30">
       
       {/* Top Identity Block */}
       <div>
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
           <div className="flex items-center gap-2.5">
-            <div className="w-[32px] h-[32px] bg-[#0052CC] rounded-[6px] flex items-center justify-center text-white">
+            <div className="w-9 h-9 bg-[#0052CC] rounded-[8px] flex items-center justify-center text-white shadow-sm">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
@@ -85,7 +85,7 @@ export default function Sidebar({
             type="button"
             id="btn-sidebar-new-request"
             onClick={onOpenUploadModal}
-            className="w-full bg-[#0052CC] hover:bg-[#003D9B] active:bg-brand-primary text-white text-[13.5px] font-semibold py-3 px-4 rounded-[6px] shadow-sm flex items-center justify-center gap-2 tracking-wide transition-all hover:scale-[1.01] cursor-pointer"
+            className="w-full bg-[#0052CC] hover:bg-[#003D9B] active:bg-brand-primary text-white text-[13.5px] font-semibold py-3 px-4 rounded-[6px] shadow-sm flex items-center justify-center gap-2 tracking-wide transition-all hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>New Funding Request</span>
@@ -137,7 +137,7 @@ export default function Sidebar({
           <button 
             type="button"
             onClick={() => alert("Welcome to Verity Help Center! Quick Guides:\n1. Click + New Funding Request to create an invoice.\n2. Click 'Request Financing' in the table to compute advance rates.\n3. Resolve disputes or sign smart settlements dynamically!")}
-            className="w-full flex items-center gap-3 px-3 py-2 text-slate-500 hover:text-slate-800 rounded-md text-[13px] hover:bg-slate-100/50 transition-colors cursor-pointer text-left"
+            className="w-full flex items-center gap-3 px-3 py-2 text-slate-500 hover:text-slate-800 rounded-[6px] text-[13px] hover:bg-slate-100/50 transition-colors cursor-pointer text-left"
           >
             <HelpCircle className="w-4 h-4 text-slate-400" />
             <span>Help Center</span>

@@ -10,8 +10,14 @@ import OverviewDashboard from './components/OverviewDashboard';
 import InvoiceListTab from './components/InvoiceListTab';
 import InvoiceVerification from './components/InvoiceVerification';
 import ReviewRebuttal from './components/ReviewRebuttal';
-import { INITIAL_INVOICES, INITIAL_FUNDING_REQUESTS, INITIAL_LIQUIDITY } from './data';
 import { Invoice, FundingRequest, LiquidityProfile } from './types';
+import {
+  getBuyerDemoWorkspaceState,
+  getBuyerWorkspaceInitialState,
+  isDemoWorkspaceDataMode,
+  loadBuyerWorkspaceState,
+  persistBuyerDemoWorkspaceState,
+} from '../lib/workspaceData';
 import {
   Plus, 
   HelpCircle, 
@@ -37,42 +43,52 @@ export default function BuyerWorkspace({
   accessRole,
   onResetAccess,
 }: BuyerWorkspaceProps) {
+  const initialWorkspaceState = getBuyerWorkspaceInitialState();
   // Navigation / Tabs state
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [brandingMode, setBrandingMode] = useState<'finux' | 'verity'>('finux');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [workspaceDataStatus, setWorkspaceDataStatus] = useState<'loading' | 'ready' | 'error'>(
+    isDemoWorkspaceDataMode() ? 'ready' : 'loading'
+  );
+  const [workspaceDataError, setWorkspaceDataError] = useState('');
   
   // App Core Data states
-  const [invoices, setInvoices] = useState<Invoice[]>(() => {
-    const saved = localStorage.getItem('sfl_invoices');
-    return saved ? JSON.parse(saved) : INITIAL_INVOICES;
-  });
+  const [invoices, setInvoices] = useState<Invoice[]>(initialWorkspaceState.invoices);
 
-  const [fundingRequests, setFundingRequests] = useState<FundingRequest[]>(() => {
-    const saved = localStorage.getItem('sfl_funding_requests');
-    return saved ? JSON.parse(saved) : INITIAL_FUNDING_REQUESTS;
-  });
+  const [fundingRequests, setFundingRequests] = useState<FundingRequest[]>(initialWorkspaceState.fundingRequests);
 
-  const [liquidity, setLiquidity] = useState<LiquidityProfile>(() => {
-    const saved = localStorage.getItem('sfl_liquidity');
-    return saved ? JSON.parse(saved) : INITIAL_LIQUIDITY;
-  });
+  const [liquidity, setLiquidity] = useState<LiquidityProfile>(initialWorkspaceState.liquidity);
 
   // Selected Invoice reference for Screen 1/2/4 evaluation views
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
 
-  // Persistence triggers
   useEffect(() => {
-    localStorage.setItem('sfl_invoices', JSON.stringify(invoices));
-  }, [invoices]);
+    let isMounted = true;
+
+    loadBuyerWorkspaceState()
+      .then((state) => {
+        if (!isMounted) return;
+        setInvoices(state.invoices);
+        setFundingRequests(state.fundingRequests);
+        setLiquidity(state.liquidity);
+        setWorkspaceDataStatus('ready');
+        setWorkspaceDataError('');
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        setWorkspaceDataStatus('error');
+        setWorkspaceDataError(error instanceof Error ? error.message : 'Unable to load buyer workspace data from VerityAPI.');
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem('sfl_funding_requests', JSON.stringify(fundingRequests));
-  }, [fundingRequests]);
-
-  useEffect(() => {
-    localStorage.setItem('sfl_liquidity', JSON.stringify(liquidity));
-  }, [liquidity]);
+    persistBuyerDemoWorkspaceState({ invoices, fundingRequests, liquidity });
+  }, [invoices, fundingRequests, liquidity]);
 
   // Handle Wallet toggles
   const handleToggleWallet = () => {
@@ -199,9 +215,10 @@ export default function BuyerWorkspace({
 
   // Sandbox Sandbox functions
   const handleResetSandbox = () => {
-    setInvoices(INITIAL_INVOICES);
-    setFundingRequests(INITIAL_FUNDING_REQUESTS);
-    setLiquidity(INITIAL_LIQUIDITY);
+    const demoState = getBuyerDemoWorkspaceState();
+    setInvoices(demoState.invoices);
+    setFundingRequests(demoState.fundingRequests);
+    setLiquidity(demoState.liquidity);
     setSelectedInvoiceId(null);
     setActiveTab('dashboard');
   };
@@ -256,6 +273,37 @@ export default function BuyerWorkspace({
 
   const currentInvoice = invoices.find(inv => inv.id === selectedInvoiceId) || invoices[0];
   const headerMeta = getHeaderTitleAndSubtitle();
+
+  if (workspaceDataStatus === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center text-slate-700">
+        <div className="bg-white border border-slate-200 rounded-[8px] px-6 py-5 shadow-sm">
+          <p className="text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">VerityAPI</p>
+          <p className="text-sm font-bold">Loading buyer workspace data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (workspaceDataStatus === 'error') {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center text-slate-700">
+        <div className="bg-white border border-rose-200 rounded-[8px] px-6 py-5 shadow-sm max-w-md">
+          <p className="text-xs uppercase tracking-widest font-bold text-rose-500 mb-2">VerityAPI data unavailable</p>
+          <p className="text-sm leading-relaxed">{workspaceDataError}</p>
+          {onResetAccess && (
+            <button
+              type="button"
+              onClick={onResetAccess}
+              className="mt-4 px-3 py-2 text-[10px] uppercase tracking-widest font-bold bg-slate-900 text-white"
+            >
+              Reset Access
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#f8f9fa] font-sans text-slate-800" id="application-layout-frame">

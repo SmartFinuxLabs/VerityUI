@@ -1,32 +1,74 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# VerityUI
 
-# Run and deploy your AI Studio app
+React/Vite frontend for the Verity supply-chain-finance Phase 1 workflows.
 
-This contains everything you need to run your app locally.
+## Stack
 
-View your app in AI Studio: https://ai.studio/apps/187af373-acc2-4b0b-bfc2-e8461d457783
+- Node.js 20+
+- React 19
+- Vite
+- TypeScript
+- Vitest
+- Playwright
 
-## Run Locally
+## Local Setup
 
-**Prerequisites:**  Node.js
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
 
+The dev server runs on `http://localhost:3000`.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Environment
 
-## Phase 1 Smoke Validation
+`VITE_API_BASE_URL` points the UI at VerityAPI. If omitted, the UI uses:
 
-Run the automated role-based smoke scenarios (Supplier, Buyer, Investor settlement continuity):
+```text
+http://localhost:8080/api/v1
+```
 
-1. Install Playwright browser runtime:
-   `npx playwright install chromium`
-2. Execute smoke suite:
-   `npm run smoke:test`
+`VITE_RUN_MODE` controls workspace data behavior:
+
+```text
+VITE_RUN_MODE=demo
+```
+
+Demo mode always uses local fixture data and does not call VerityAPI workspace endpoints, even if an API session is stored in browser localStorage.
+
+```text
+VITE_RUN_MODE=api
+```
+
+API mode signs in through VerityAPI and loads role workspace state from:
+
+- `GET /workspaces/buyer`
+- `GET /workspaces/supplier`
+- `GET /workspaces/investor`
+
+Supabase URL, anon key, and service-role key belong in `VerityAPI` only. Do not expose Supabase credentials through Vite browser environment variables.
+
+## Scripts
+
+```bash
+npm run dev
+npm run lint
+npm test
+npm run build
+```
+
+## Smoke Tests
+
+The smoke suite runs the UI in demo mode and validates role-based flows for Supplier, Buyer, and Investor workspaces.
+
+```bash
+npx playwright install chromium
+npm run smoke:test
+```
 
 HTML report output:
-- `playwright-report/smoke`
+
+```text
+playwright-report/smoke
+```

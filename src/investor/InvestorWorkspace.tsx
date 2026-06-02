@@ -8,7 +8,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import './index.css';
 import { 
   ShieldCheck, 
@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 
 import { ActiveScreen, Invoice, Settlement, LedgerRow, WalletState } from './types';
-import { initialInvoices, initialSettlements, initialLedger } from './data';
+import { getInvestorWorkspaceInitialState, isDemoWorkspaceDataMode, loadInvestorWorkspaceState } from '../lib/workspaceData';
 
 import DirectFundingView from './components/DirectFundingView';
 import LiquidityMarketplaceView from './components/LiquidityMarketplaceView';
@@ -52,21 +52,26 @@ export default function InvestorWorkspace({
   accessRole,
   onResetAccess,
 }: InvestorWorkspaceProps) {
+  const initialWorkspaceState = getInvestorWorkspaceInitialState();
   // Navigation State
   const [activeScreen, setActiveScreen] = useState<ActiveScreen>('direct-funding');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('INV-2026-089');
 
   // Unified global metrics (that change with user fund/bridge actions!)
-  const [totalCommitted, setTotalCommitted] = useState(12450000.00);
-  const [activeInvestments, setActiveInvestments] = useState(8124550.00);
-  const [availableCapital, setAvailableCapital] = useState(4325450.00);
-  const [projectedYield, setProjectedYield] = useState(8.45);
-  const [ytdEarned, setYtdEarned] = useState(156250.00);
+  const [totalCommitted, setTotalCommitted] = useState(initialWorkspaceState.totalCommitted);
+  const [activeInvestments, setActiveInvestments] = useState(initialWorkspaceState.activeInvestments);
+  const [availableCapital, setAvailableCapital] = useState(initialWorkspaceState.availableCapital);
+  const [projectedYield, setProjectedYield] = useState(initialWorkspaceState.projectedYield);
+  const [ytdEarned, setYtdEarned] = useState(initialWorkspaceState.ytdEarned);
 
   // Invoices & Settlements lists with dynamic modifications
-  const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
-  const [settlements, setSettlements] = useState<Settlement[]>(initialSettlements);
-  const [ledgerRows, setLedgerRows] = useState<LedgerRow[]>(initialLedger);
+  const [invoices, setInvoices] = useState<Invoice[]>(initialWorkspaceState.invoices);
+  const [settlements, setSettlements] = useState<Settlement[]>(initialWorkspaceState.settlements);
+  const [ledgerRows, setLedgerRows] = useState<LedgerRow[]>(initialWorkspaceState.ledgerRows);
+  const [workspaceDataStatus, setWorkspaceDataStatus] = useState<'loading' | 'ready' | 'error'>(
+    isDemoWorkspaceDataMode() ? 'ready' : 'loading'
+  );
+  const [workspaceDataError, setWorkspaceDataError] = useState('');
 
   // Notifications State
   const [notifications, setNotifications] = useState<string[]>([
@@ -94,6 +99,34 @@ export default function InvestorWorkspace({
     hash: '',
     details: {} as Record<string, string>
   });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    loadInvestorWorkspaceState()
+      .then((state) => {
+        if (!isMounted) return;
+        setInvoices(state.invoices);
+        setSettlements(state.settlements);
+        setLedgerRows(state.ledgerRows);
+        setTotalCommitted(state.totalCommitted);
+        setActiveInvestments(state.activeInvestments);
+        setAvailableCapital(state.availableCapital);
+        setProjectedYield(state.projectedYield);
+        setYtdEarned(state.ytdEarned);
+        setWorkspaceDataStatus('ready');
+        setWorkspaceDataError('');
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        setWorkspaceDataStatus('error');
+        setWorkspaceDataError(error instanceof Error ? error.message : 'Unable to load investor workspace data from VerityAPI.');
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Action: Export CSV simulation
   const handleExportCSV = () => {
@@ -212,16 +245,47 @@ export default function InvestorWorkspace({
 
   const currentSelectedInvoiceObject = invoices.find(inv => inv.id === selectedInvoiceId) || invoices[0];
 
+  if (workspaceDataStatus === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center text-slate-700">
+        <div className="bg-white border border-slate-200 rounded-[8px] px-6 py-5 shadow-sm">
+          <p className="text-xs uppercase tracking-widest font-bold text-slate-400 mb-2">VerityAPI</p>
+          <p className="text-sm font-bold">Loading investor workspace data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (workspaceDataStatus === 'error') {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center text-slate-700">
+        <div className="bg-white border border-rose-200 rounded-[8px] px-6 py-5 shadow-sm max-w-md">
+          <p className="text-xs uppercase tracking-widest font-bold text-rose-500 mb-2">VerityAPI data unavailable</p>
+          <p className="text-sm leading-relaxed">{workspaceDataError}</p>
+          {onResetAccess && (
+            <button
+              type="button"
+              onClick={onResetAccess}
+              className="mt-4 px-3 py-2 text-[10px] uppercase tracking-widest font-bold bg-slate-900 text-white"
+            >
+              Reset Access
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex text-slate-800 bg-[#f8f9fa] selection:bg-brand-primary selection:text-white" id="main-layout-root">
+    <div className="min-h-screen flex text-slate-800 bg-[#F8F9FA] selection:bg-brand-primary selection:text-white" id="main-layout-root">
       
       {/* LEFT SIDEBAR NAVIGATION */}
-      <aside className="w-64 bg-white border-r border-slate-200 shrink-0 hidden md:flex flex-col justify-between" id="side-navigation-panel">
+      <aside className="w-[260px] bg-white border-r border-slate-200 shrink-0 hidden md:flex flex-col justify-between h-screen sticky top-0 z-30" id="side-navigation-panel">
         
         {/* Top brand header */}
         <div>
-          <div className="p-6 border-b border-slate-100 flex items-center space-x-3 bg-slate-50/50">
-            <div className="w-9 h-9 rounded-xl bg-brand-primary text-white flex items-center justify-center shadow-md">
+          <div className="p-6 border-b border-slate-100 flex items-center space-x-3 bg-slate-50/30">
+            <div className="w-9 h-9 rounded-[8px] bg-brand-primary text-white flex items-center justify-center shadow-sm">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
@@ -231,7 +295,7 @@ export default function InvestorWorkspace({
           </div>
 
           <div className="p-4" id="sidebar-context-pill">
-            <div className="bg-brand-primary/5 border border-brand-primary/10 rounded-lg p-2.5 flex items-center justify-between text-xs">
+            <div className="bg-brand-primary/5 border border-brand-primary/10 rounded-[6px] p-2.5 flex items-center justify-between text-xs">
               <div className="flex items-center space-x-1.5 font-bold text-brand-primary">
                 <Globe className="w-3.5 h-3.5 text-brand-primary animate-pulse" />
                 <span>Prime Network Node</span>
@@ -255,9 +319,9 @@ export default function InvestorWorkspace({
                   onClick={() => {
                     setActiveScreen(item.id);
                   }}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-semibold cursor-pointer transition-all duration-150 ${
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[6px] text-[13.5px] font-medium cursor-pointer transition-all duration-150 ${
                     isActive 
-                      ? 'bg-brand-primary/10 text-brand-primary shadow-sm font-bold' 
+                      ? 'bg-[#EBF2FF] text-brand-primary shadow-2xs font-semibold' 
                       : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
                   }`}
                 >
@@ -273,8 +337,8 @@ export default function InvestorWorkspace({
         </div>
 
         {/* Bottom Sidebar Indicators */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50/40 space-y-3.5 text-xs text-slate-400 font-medium">
-          <div className="bg-white p-3 rounded-lg border border-slate-200/60 shadow-[0px_4px_10px_rgba(0,0,0,0.01)] flex items-center justify-between">
+        <div className="p-4 border-t border-slate-100 bg-[#F8F9FA]/50 space-y-3.5 text-xs text-slate-400 font-medium">
+          <div className="bg-white p-3 rounded-[6px] border border-slate-200/60 shadow-[0px_4px_10px_rgba(0,0,0,0.01)] flex items-center justify-between">
             <div className="flex items-center space-x-1.5 text-slate-500">
               <Scale className="w-3.5 h-3.5 text-emerald-600" />
               <span>Compliance Scan</span>
@@ -296,7 +360,7 @@ export default function InvestorWorkspace({
       <main className="flex-1 flex flex-col min-w-0" id="main-content-scroller">
         
         {/* TOP HEADER */}
-        <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 sticky top-0 z-40 shadow-[0px_1px_3px_rgba(0,0,0,0.02)]" id="page-header-container">
+        <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 sticky top-0 z-40 shadow-[0px_1px_3px_rgba(15,23,42,0.02)]" id="page-header-container">
           
           {/* Logo / Context Title for Screen sizes */}
           <div className="flex items-center space-x-4">
@@ -318,7 +382,7 @@ export default function InvestorWorkspace({
                   onClick={() => setActiveScreen(lnk.id)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
                     activeScreen === lnk.id 
-                      ? 'bg-brand-primary/5 text-brand-primary' 
+                    ? 'bg-[#EBF2FF] text-brand-primary' 
                       : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
@@ -334,7 +398,7 @@ export default function InvestorWorkspace({
             {/* Wallet Connector Control */}
             <div id="wallet-connector-widget">
               {walletState.connected ? (
-                <div className="bg-brand-primary/5 border border-brand-primary/10 rounded-lg p-1.5 flex items-center space-x-2.5 text-xs">
+                <div className="bg-brand-primary/5 border border-brand-primary/10 rounded-[6px] p-1.5 flex items-center space-x-2.5 text-xs">
                   <div className="bg-brand-primary text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono tracking-wider text-center flex items-center space-x-1 justify-center shrink-0">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
                     <span>{walletState.network === 'arc' ? 'ARC' : 'ETH'}</span>
@@ -347,7 +411,7 @@ export default function InvestorWorkspace({
               ) : (
                 <button 
                   onClick={() => setIsWalletModalOpen(true)}
-                  className="bg-brand-primary hover:bg-brand-primary-container text-white py-1.5 px-3.5 rounded-lg text-xs font-bold flex items-center space-x-2 cursor-pointer transition shadow-sm hover:-translate-y-0.5 active:translate-y-0"
+                  className="bg-brand-primary hover:bg-brand-primary-container text-white py-1.5 px-3.5 rounded-[6px] text-xs font-bold flex items-center space-x-2 cursor-pointer transition shadow-sm hover:-translate-y-0.5 active:translate-y-0"
                 >
                   <Wallet className="w-3.5 h-3.5" />
                   <span>Connect Wallet</span>
@@ -359,7 +423,7 @@ export default function InvestorWorkspace({
             <div className="relative">
               <button 
                 onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-lg bg-slate-50 hover:bg-slate-100 transition relative cursor-pointer"
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-[6px] bg-slate-50 hover:bg-slate-100 transition relative cursor-pointer"
                 aria-label="Toggle notifications panel"
               >
                 <Bell className="w-4 h-4 text-slate-600" />
@@ -369,7 +433,7 @@ export default function InvestorWorkspace({
               </button>
 
               {showNotificationsDropdown && (
-                <div className="absolute right-0 mt-2.5 w-80 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50 animate-fade-in">
+                <div className="absolute right-0 mt-2.5 w-80 bg-white border border-slate-200 rounded-[8px] shadow-xl overflow-hidden z-50 animate-fade-in">
                   <div className="p-3 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
                     <span className="text-xs font-bold text-slate-800">System Log Notifications</span>
                     <button 
@@ -411,7 +475,7 @@ export default function InvestorWorkspace({
             {onResetAccess && (
               <button
                 onClick={onResetAccess}
-                className="hidden md:inline-flex px-3 py-1.5 text-[10px] uppercase tracking-widest font-bold border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 transition-colors"
+                className="hidden md:inline-flex px-3 py-1.5 text-[10px] uppercase tracking-widest font-bold border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 transition-colors rounded-[6px]"
               >
                 Reset Access
               </button>
@@ -521,4 +585,3 @@ export default function InvestorWorkspace({
     </div>
   );
 }
-

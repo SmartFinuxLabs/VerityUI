@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import type { Session } from '@supabase/supabase-js';
-import { ParticipantRole, storeDemoAccess, storeSupabaseSession } from '../lib/participantAuth';
-import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
+import { verityApi } from '../lib/apiClient';
+import { ParticipantRole, PartyType, storeApiSession, storeDemoAccess } from '../lib/participantAuth';
+import { isDemoMode } from '../lib/runtimeMode';
 
 const PARTICIPANT_ROLES: ParticipantRole[] = ['Supplier', 'Buyer', 'Investor'];
 
@@ -46,7 +46,7 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
   };
 
   const lookupRoleHintForEmail = async () => {
-    if (!supabase || authMode !== 'signin') {
+    if (isDemoMode() || authMode !== 'signin') {
       return;
     }
 
@@ -60,49 +60,36 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
     setLastLookupEmail(normalizedEmail);
 
     try {
-      const { data, error } = await supabase.rpc('get_signin_role_hint', {
-        p_email: normalizedEmail,
-      });
-
-      if (error) {
-        setDetectedRole(undefined);
-        setDetectedOrgRole(undefined);
-        setDetectedOrganizationName(undefined);
-        return;
-      }
-
-      const hint = Array.isArray(data) ? data[0] : undefined;
+      const { data: hint } = await verityApi.getRoleHint(normalizedEmail);
       const hintRole =
-        mapPartyTypeToParticipantRole(hint?.participant_role) ??
-        (hint?.participant_role === 'Supplier' || hint?.participant_role === 'Buyer' || hint?.participant_role === 'Investor'
-          ? hint.participant_role
+        mapPartyTypeToParticipantRole(hint?.participantRole) ??
+        (hint?.participantRole === 'Supplier' || hint?.participantRole === 'Buyer' || hint?.participantRole === 'Investor'
+          ? hint.participantRole
           : undefined);
 
       setDetectedRole(hintRole);
-      setDetectedOrgRole(typeof hint?.organization_role === 'string' ? hint.organization_role : undefined);
-      setDetectedOrganizationName(typeof hint?.organization_name === 'string' ? hint.organization_name : undefined);
+      setDetectedOrgRole(typeof hint?.organizationRole === 'string' ? hint.organizationRole : undefined);
+      setDetectedOrganizationName(typeof hint?.organizationName === 'string' ? hint.organizationName : undefined);
+    } catch {
+      setDetectedRole(undefined);
+      setDetectedOrgRole(undefined);
+      setDetectedOrganizationName(undefined);
     } finally {
       setIsLookupLoading(false);
     }
   };
 
-  const acceptInvitationIfPresent = async (session: Session) => {
-    if (!invitationToken || !supabase) {
+  const acceptInvitationIfPresent = async (accessToken: string) => {
+    if (!invitationToken) {
       return;
     }
 
-    const { error } = await supabase.rpc('accept_organization_invitation', {
-      p_invitation_token: invitationToken,
-      p_user_id: session.user.id,
-      p_full_name: fullName || session.user.user_metadata?.full_name || session.user.user_metadata?.display_name || null,
-      p_legal_name: entityName || null,
-      p_registration_no: null,
-      p_risk_profile: {},
+    await verityApi.acceptInvitation({
+      invitationToken,
+      accessToken,
+      fullName,
+      legalName: entityName,
     });
-
-    if (error) {
-      throw new Error(error.message);
-    }
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -112,95 +99,80 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
     setIsSubmitting(true);
 
     try {
-      if (supabase) {
-        if (authMode === 'register') {
-          const partyType = participantRole.toUpperCase() as 'SUPPLIER' | 'BUYER' | 'INVESTOR';
-          const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: {
-                provision_organization: !invitationToken,
-                party_type: partyType,
-                participantRole,
-                organization_name: entityName,
-                entityName,
-                full_name: fullName,
-                display_name: fullName,
-              },
-            },
-          });
-
-          if (error) {
-            setErrorMessage(error.message);
-            return;
-          }
-
-          if (data.session) {
-            if (invitationToken) {
-              await acceptInvitationIfPresent(data.session);
-            }
-
-            storeSupabaseSession(data.session, email, { participantRole, entityName });
-            onAuthenticated();
-            return;
-          }
-
-          setSuccessMessage(
-            invitationToken
-              ? 'Invitation registration submitted. Confirm your email, then sign in to activate membership.'
-              : 'Registration submitted. Confirm your email, then sign in to continue.'
-          );
-          setAuthMode('signin');
-          return;
-        }
-
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) {
-          setErrorMessage(error.message);
-          return;
-        }
-
-        if (!data.session) {
-          setErrorMessage('Supabase did not return a session for this account.');
-          return;
-        }
-
-        if (invitationToken) {
-          await acceptInvitationIfPresent(data.session);
-        }
-
-        const metadata = data.session.user.user_metadata ?? {};
-        const signedInRole =
-          metadata.participantRole === 'Supplier' || metadata.participantRole === 'Buyer' || metadata.participantRole === 'Investor'
-            ? metadata.participantRole
-            : undefined;
-          const signedInEntityName =
-            typeof metadata.entityName === 'string'
-              ? metadata.entityName
-              : typeof metadata.organization_name === 'string'
-                ? metadata.organization_name
-                : undefined;
-
-        storeSupabaseSession(data.session, email, {
-          participantRole: signedInRole,
-          entityName: signedInEntityName,
+      if (isDemoMode()) {
+        storeDemoAccess(email, {
+          participantRole,
+          entityName,
         });
         onAuthenticated();
         return;
       }
 
-      storeDemoAccess(email, {
-        participantRole,
-        entityName,
+      if (authMode === 'register') {
+        const partyType = participantRole.toUpperCase() as PartyType;
+        const { data } = await verityApi.register({
+          email,
+          password,
+          fullName,
+          entityName,
+          participantRole,
+          partyType,
+          invitationToken: invitationToken ?? undefined,
+        });
+
+        if (data?.session) {
+          if (invitationToken) {
+            await acceptInvitationIfPresent(data.session.accessToken);
+          }
+
+          storeApiSession(data.session, email, { participantRole, entityName });
+          onAuthenticated();
+          return;
+        }
+
+        setSuccessMessage(
+          invitationToken
+            ? 'Invitation registration submitted. Confirm your email, then sign in to activate membership.'
+            : 'Registration submitted. Confirm your email, then sign in to continue.'
+        );
+        setAuthMode('signin');
+        return;
+      }
+
+      const { data } = await verityApi.signIn({
+        email,
+        password,
+      });
+
+      if (!data?.session) {
+        setErrorMessage('VerityAPI did not return a session for this account.');
+        return;
+      }
+
+      if (invitationToken) {
+        await acceptInvitationIfPresent(data.session.accessToken);
+      }
+
+      const metadata = data.session.user.userMetadata ?? {};
+      const signedInRole =
+        metadata.participantRole === 'Supplier' || metadata.participantRole === 'Buyer' || metadata.participantRole === 'Investor'
+          ? metadata.participantRole
+          : undefined;
+      const signedInEntityName =
+        typeof metadata.entityName === 'string'
+          ? metadata.entityName
+          : typeof metadata.organization_name === 'string'
+            ? metadata.organization_name
+            : undefined;
+
+      storeApiSession(data.session, email, {
+        participantRole: signedInRole,
+        entityName: signedInEntityName,
       });
       onAuthenticated();
-    } catch {
-      setErrorMessage('Unable to authenticate right now. Check network or Supabase settings.');
+      return;
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to authenticate through VerityAPI right now.');
     } finally {
       setIsSubmitting(false);
     }
@@ -234,9 +206,9 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
               Invitation flow detected. Complete sign-in or registration to activate membership.
             </p>
           )}
-          {!hasSupabaseConfig() && (
+          {isDemoMode() && (
             <p className="mt-4 text-[11px] uppercase tracking-[0.2em] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2">
-              Demo auth active. Configure Supabase keys for real registration.
+              Demo mode active. Local demo data is being used.
             </p>
           )}
         </div>
