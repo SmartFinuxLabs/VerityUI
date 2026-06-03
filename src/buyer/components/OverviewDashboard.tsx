@@ -274,7 +274,7 @@ export default function OverviewDashboard({
                               inv.status === 'PENDING_VERIFICATION'
                                 ? 'bg-[#0052cc]/10 hover:bg-[#0052cc] text-[#0052cc] hover:text-white'
                                 : inv.status === 'CONTESTED'
-                                ? 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white'
+                                ? 'bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white'
                                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                             }`}
                           >

@@ -5,11 +5,14 @@ export interface Invoice {
   buyerId?: string;
   buyer: string;
   amount: number;
+  grossAmount?: number;
+  acceptedAmount?: number;
   maturityDate: string;
   status: InvoiceStatus;
   originalQty?: number;
   unitPrice?: number;
   itemDescription?: string;
+  lineItems?: any[];
   revisedQty?: number;
   disputeReason?: string;
   disputeEvidenceFile?: string;
@@ -34,6 +37,7 @@ export type MainRoute =
   | 'factoring'
   | 'disputes'
   | 'settlement'
+  | 'create-invoice'
   | 'buyer-workspace';
 
 export interface AppState {

@@ -19,10 +19,14 @@ import {
   persistBuyerDemoWorkspaceState,
 } from '../lib/workspaceData';
 import {
+  getParticipantAccessSnapshot,
+} from '../lib/participantAuth';
+import { verityApi } from '../lib/apiClient';
+import {
   Plus, 
   HelpCircle, 
   Search, 
-  RefreshCw, 
+  RefreshCw,
   CheckSquare, 
   Building2, 
   ShieldCheck, 
@@ -46,7 +50,7 @@ export default function BuyerWorkspace({
   const initialWorkspaceState = getBuyerWorkspaceInitialState();
   // Navigation / Tabs state
   const [activeTab, setActiveTab] = useState<string>('dashboard');
-  const [brandingMode, setBrandingMode] = useState<'finux' | 'verity'>('finux');
+  const [brandingMode, setBrandingMode] = useState<'finux' | 'verity'>('verity');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [workspaceDataStatus, setWorkspaceDataStatus] = useState<'loading' | 'ready' | 'error'>(
     isDemoWorkspaceDataMode() ? 'ready' : 'loading'
@@ -105,6 +109,13 @@ export default function BuyerWorkspace({
     }));
   };
 
+  const refreshBuyerWorkspace = async () => {
+    const refreshedState = await loadBuyerWorkspaceState();
+    setInvoices(refreshedState.invoices);
+    setFundingRequests(refreshedState.fundingRequests);
+    setLiquidity(refreshedState.liquidity);
+  };
+
   // Add mock Funding requests
   const handleAddFundingRequest = (req: Omit<FundingRequest, 'id'>) => {
     const nextId = `REQ-${(8880 + fundingRequests.length).toString()}-X`;
@@ -116,7 +127,28 @@ export default function BuyerWorkspace({
   };
 
   // Invoice Actions: Accept & Sign
-  const handleAcceptAndSignInvoice = (id: string) => {
+  const handleAcceptAndSignInvoice = async (id: string) => {
+    const invoice = invoices.find(inv => inv.id === id);
+    if (!isDemoWorkspaceDataMode() && invoice) {
+      try {
+        const snapshot = getParticipantAccessSnapshot();
+        if (snapshot?.provider === 'api' && snapshot.accessToken) {
+          await verityApi.createInvoiceResolution(snapshot.accessToken, id, {
+            decisionState: 'ACCEPTED',
+            decisionReason: 'Buyer accepted and cryptographically signed invoice.',
+            reasonCode: 'BUYER_APPROVED',
+            acceptedAmount: invoice.grossAmount || invoice.amount
+          });
+          await refreshBuyerWorkspace();
+          setActiveTab('verification-details');
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to persist buyer invoice approval to database:', err);
+        return;
+      }
+    }
+
     setInvoices(prev => prev.map(inv => {
       if (inv.id === id) {
         return {
@@ -136,14 +168,29 @@ export default function BuyerWorkspace({
     }));
   };
 
-  // Invoice Actions: Submit Dispute
-  const handleSubmitDisputeInvoice = (
+  const handleSubmitDisputeInvoice = async (
     id: string, 
     reason: string, 
     description: string, 
     filename: string, 
     filesize: string
   ) => {
+    if (!isDemoWorkspaceDataMode()) {
+      try {
+        const snapshot = getParticipantAccessSnapshot();
+        if (snapshot?.provider === 'api' && snapshot.accessToken) {
+          await verityApi.createInvoiceResolution(snapshot.accessToken, id, {
+            decisionState: 'DISPUTED',
+            decisionReason: description,
+            reasonCode: reason,
+            acceptedAmount: 0
+          });
+        }
+      } catch (err) {
+        console.error('Failed to persist dispute to database:', err);
+      }
+    }
+
     setInvoices(prev => prev.map(inv => {
       if (inv.id === id) {
         return {
@@ -171,7 +218,28 @@ export default function BuyerWorkspace({
   };
 
   // Rebuttal Actions: Resolving conflict
-  const handleAcceptRebuttal = (id: string) => {
+  const handleAcceptRebuttal = async (id: string) => {
+    const inv = invoices.find(x => x.id === id);
+    if (!isDemoWorkspaceDataMode() && inv) {
+      try {
+        const snapshot = getParticipantAccessSnapshot();
+        if (snapshot?.provider === 'api' && snapshot.accessToken) {
+          await verityApi.createInvoiceResolution(snapshot.accessToken, id, {
+            decisionState: 'ACCEPTED',
+            decisionReason: 'Accept supplier proof of shipment. Ledger updated.',
+            reasonCode: 'REBUTTAL_ACCEPTED',
+            acceptedAmount: inv.grossAmount || inv.amount
+          });
+          await refreshBuyerWorkspace();
+          setActiveTab('verification-details');
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to persist rebuttal acceptance to database:', err);
+        return;
+      }
+    }
+
     setInvoices(prev => prev.map(inv => {
       if (inv.id === id) {
         return {
@@ -182,12 +250,27 @@ export default function BuyerWorkspace({
       }
       return inv;
     }));
-    // Return back to list
-    setSelectedInvoiceId(null);
-    setActiveTab('invoices');
+    // Navigate to Invoice Details to show confirmation
+    setActiveTab('verification-details');
   };
 
-  const handleUpholdDispute = (id: string) => {
+  const handleUpholdDispute = async (id: string) => {
+    if (!isDemoWorkspaceDataMode()) {
+      try {
+        const snapshot = getParticipantAccessSnapshot();
+        if (snapshot?.provider === 'api' && snapshot.accessToken) {
+          await verityApi.createInvoiceResolution(snapshot.accessToken, id, {
+            decisionState: 'DISPUTED',
+            decisionReason: 'Requested replacement batch from supplier.',
+            reasonCode: 'DISPUTE_UPHELD',
+            acceptedAmount: 0
+          });
+        }
+      } catch (err) {
+        console.error('Failed to persist upheld dispute to database:', err);
+      }
+    }
+
     setInvoices(prev => prev.map(inv => {
       if (inv.id === id) {
         return {
@@ -198,8 +281,8 @@ export default function BuyerWorkspace({
       }
       return inv;
     }));
-    setSelectedInvoiceId(null);
-    setActiveTab('invoices');
+    // Navigate to Invoice Details to show confirmation
+    setActiveTab('verification-details');
   };
 
   // Navigation handlers
@@ -397,6 +480,7 @@ export default function BuyerWorkspace({
               onBack={() => setActiveTab('invoices')}
               onAcceptRebuttal={handleAcceptRebuttal}
               onUpholdDispute={handleUpholdDispute}
+              onViewOriginal={() => setActiveTab('verification-details')}
             />
           )}
 

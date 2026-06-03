@@ -110,7 +110,7 @@ export default function Sidebar({
                 Verity
               </h1>
               <span className="font-mono text-[10px] text-slate-500 uppercase tracking-widest block font-medium mt-0.5">
-                Enterprise Node
+                Enterprise node
               </span>
             </div>
           </div>

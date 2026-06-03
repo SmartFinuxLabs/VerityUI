@@ -307,7 +307,7 @@ export default function InvoiceListTab({
                     currentInvoice.status === 'PENDING_VERIFICATION'
                       ? 'bg-amber-100 text-amber-800'
                       : currentInvoice.status === 'CONTESTED'
-                      ? 'bg-rose-100 text-rose-800'
+                      ? 'bg-orange-100 text-orange-800'
                       : 'bg-emerald-100 text-emerald-800'
                   }`}>
                     {currentInvoice.status.replace('_', ' ')}
@@ -319,7 +319,7 @@ export default function InvoiceListTab({
                 <div>
                   <span className="text-slate-400 text-[9px] uppercase font-bold tracking-wider font-mono">Amount</span>
                   <div className="font-sans font-extrabold text-slate-950 text-sm mt-0.5">
-                    ${currentInvoice.amount.toLocaleString()}
+                    ${(currentInvoice.grossAmount || currentInvoice.amount).toLocaleString()}
                   </div>
                   <span className="text-[9px] text-slate-400 font-mono font-bold block">USDC</span>
                 </div>

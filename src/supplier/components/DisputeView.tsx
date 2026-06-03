@@ -275,7 +275,7 @@ export default function DisputeView({
                 </div>
                 <div>
                   <span className="block text-slate-400 font-bold uppercase text-[9.5px]">Billed Value</span>
-                  <span className="text-slate-800 font-bold block mt-0.5 font-mono">${invoice.amount.toLocaleString()}</span>
+                  <span className="text-slate-800 font-bold block mt-0.5 font-mono">${(invoice.grossAmount || invoice.amount).toLocaleString()}</span>
                 </div>
               </div>
 

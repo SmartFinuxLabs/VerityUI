@@ -39,6 +39,8 @@ export interface Invoice {
   supplierId: string; // e.g. "tg_0492"
   walletAddress: string; // e.g. "0x8a...4f2b"
   amount: number;
+  grossAmount?: number;
+  acceptedAmount?: number;
   currency: string; // USDC
   issueDate: string;
   maturityDate: string;

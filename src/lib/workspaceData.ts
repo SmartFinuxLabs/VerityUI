@@ -79,9 +79,22 @@ export function getBuyerDemoWorkspaceState(): BuyerWorkspaceState {
 }
 
 export function getSupplierDemoWorkspaceState(): SupplierWorkspaceState {
+  const buyerInvoices = readJsonStorage<BuyerInvoice[]>('sfl_invoices', BUYER_INVOICES);
+  
+  const syncedSupplierInvoices = SUPPLIER_INVOICES.map(inv => {
+    const matchingBuyer = buyerInvoices.find(b => b.id === inv.id);
+    if (matchingBuyer && matchingBuyer.status === 'CONTESTED') {
+      return { ...inv, status: 'DISPUTED' as const };
+    }
+    if (matchingBuyer && matchingBuyer.status === 'VERIFIED') {
+      return { ...inv, status: 'ACCEPTED' as const };
+    }
+    return inv;
+  });
+
   return {
     supplierOrganizationId: 'demo-supplier-techgear',
-    invoices: SUPPLIER_INVOICES,
+    invoices: syncedSupplierInvoices,
     registeredBuyers: [
       { buyerId: 'demo-buyer-acme-global', buyerName: 'Acme Corp Global', buyerStatus: 'ACTIVE' },
       { buyerId: 'demo-buyer-global-mfg', buyerName: 'Global Manufacturing Corp', buyerStatus: 'ACTIVE' },

@@ -21,6 +21,31 @@
   --color-status-factored: #8B5CF6;
   --color-status-settled: #10B981;
   --color-status-failed: #DC2626;
+
+  /* Aliases for Create Invoice Wizard components to honor VerityUI styling natively */
+  --color-primary: var(--color-brand-primary);
+  --color-primary-container: var(--color-brand-primary-light);
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #c4d2ff;
+  --color-surface: var(--color-brand-background);
+  --color-surface-dim: #d9dadb;
+  --color-surface-bright: var(--color-brand-background);
+  --color-surface-container-lowest: var(--color-brand-surface);
+  --color-surface-container-low: #f3f4f5;
+  --color-surface-container: #edeeef;
+  --color-surface-container-high: #e7e8e9;
+  --color-surface-container-highest: #e1e3e4;
+  --color-on-surface: #191c1d;
+  --color-on-surface-variant: #434654;
+  --color-outline: #737685;
+  --color-outline-variant: #c3c6d6;
+  --color-surface-subtle: #F3F4F6;
+  --color-surface-variant: #e1e3e4;
+  --color-border-muted: #E5E7EB;
+  --color-primary-fixed: var(--color-brand-primary-container);
+  --color-on-primary-fixed: #001848;
+  --color-on-primary-fixed-variant: #0040a2;
+  --color-primary-fixed-dim: #b2c5ff;
   
   --shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.03);
   --shadow-medium: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);

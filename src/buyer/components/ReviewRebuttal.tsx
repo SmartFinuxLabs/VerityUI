@@ -23,6 +23,7 @@ interface ReviewRebuttalProps {
   onBack: () => void;
   onAcceptRebuttal: (invoiceId: string) => void;
   onUpholdDispute: (invoiceId: string) => void;
+  onViewOriginal: () => void;
 }
 
 export default function ReviewRebuttal({
@@ -30,6 +31,7 @@ export default function ReviewRebuttal({
   onBack,
   onAcceptRebuttal,
   onUpholdDispute,
+  onViewOriginal,
 }: ReviewRebuttalProps) {
   // Mock prefilled internal reviewer notes state
   const [internalNotes, setInternalNotes] = useState(
@@ -90,7 +92,7 @@ export default function ReviewRebuttal({
             <h1 className="text-2xl font-bold font-sans text-slate-900 tracking-tight">
               Review Rebuttal
             </h1>
-            <span className="px-2.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold uppercase font-mono tracking-wider">
+            <span className="px-2.5 py-0.5 rounded bg-orange-100 text-orange-800 text-[10px] font-bold uppercase font-mono tracking-wider">
               CONTESTED
             </span>
           </div>
@@ -291,13 +293,13 @@ export default function ReviewRebuttal({
                 <span className="text-slate-400 text-[9px] uppercase font-bold tracking-wider font-mono block">Total Amount</span>
                 <div className="text-xl font-extrabold text-[#0052cc] font-sans tracking-tight mt-1">
                   <span className="text-slate-550 text-xs font-mono font-bold mr-1">USD</span>
-                  ${invoice.amount.toLocaleString()}.00
+                  ${(invoice.grossAmount || invoice.amount).toLocaleString()}.00
                 </div>
               </div>
 
               <a 
                 href="#original-invoice" 
-                onClick={(e) => e.preventDefault()}
+                onClick={(e) => { e.preventDefault(); onViewOriginal(); }}
                 className="w-full flex items-center justify-center gap-1.5 py-2.5 border border-slate-150 hover:bg-slate-50 text-slate-500 hover:text-slate-800 font-semibold font-sans rounded-lg transition-all text-[11px]"
               >
                 <span>View Full Original Invoice</span>

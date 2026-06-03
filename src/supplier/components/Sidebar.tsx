@@ -68,7 +68,7 @@ export default function Sidebar({
             </div>
             <div>
               <span className="text-[17px] font-extrabold tracking-tight text-[#003D9B] block leading-none">Verity</span>
-              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block mt-1">Enterprise Node</span>
+              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block mt-1">Enterprise node</span>
             </div>
           </div>
           

@@ -92,13 +92,13 @@ export default function DashboardView({
     : 'Manage active invoices, view financing options, and monitor your decentralized credit rating.';
   const totalOutstandingVolume = invoices
     .filter((invoice) => invoice.status !== 'SETTLED')
-    .reduce((total, invoice) => total + invoice.amount, 0);
+    .reduce((total, invoice) => total + (invoice.grossAmount || invoice.amount), 0);
   const pendingFinancingVolume = invoices
     .filter((invoice) => invoice.status === 'ACCEPTED')
-    .reduce((total, invoice) => total + invoice.amount, 0);
+    .reduce((total, invoice) => total + (invoice.grossAmount || invoice.amount), 0);
   const factoredVolume = invoices
     .filter((invoice) => invoice.status === 'FACTORED')
-    .reduce((total, invoice) => total + invoice.amount, 0);
+    .reduce((total, invoice) => total + (invoice.grossAmount || invoice.amount), 0);
   const statusCounts = invoices.reduce<Record<InvoiceStatus, number>>(
     (counts, invoice) => ({
       ...counts,
@@ -590,7 +590,15 @@ export default function DashboardView({
               className="bg-[#0052CC] hover:bg-[#003D9B] active:bg-[#003D9B] text-white text-xs font-bold px-4 py-2 rounded-[6px] shadow-sm flex items-center gap-2 tracking-wide cursor-pointer"
             >
               <Upload className="w-3.5 h-3.5" />
-              <span>Upload Invoice</span>
+              <span>Quick Upload</span>
+            </button>
+            <button
+              onClick={() => onSelectRoute('create-invoice')}
+              type="button"
+              className="bg-white border border-[#0052CC] text-[#0052CC] hover:bg-blue-50 active:bg-blue-100 text-xs font-bold px-4 py-2 rounded-[6px] shadow-sm flex items-center gap-2 tracking-wide cursor-pointer"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Detailed Invoice</span>
             </button>
           </div>
         </div>
@@ -631,7 +639,7 @@ export default function DashboardView({
 
                     {/* Amount in USDC */}
                     <td className="px-6 py-4 font-bold font-mono text-slate-900 text-[13.5px]">
-                      ${invoice.amount.toLocaleString()} <span className="text-[10px] text-slate-400 font-bold inline-block ml-0.5">USDC</span>
+                      ${(invoice.grossAmount || invoice.amount).toLocaleString()} <span className="text-[10px] text-slate-400 font-bold inline-block ml-0.5">USDC</span>
                     </td>
 
                     {/* Maturity Date */}

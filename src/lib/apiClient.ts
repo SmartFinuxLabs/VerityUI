@@ -186,6 +186,26 @@ export const verityApi = {
     });
   },
 
+  createInvoiceResolution(
+    accessToken: string,
+    invoiceId: string,
+    payload: {
+      decisionState: string;
+      decisionReason: string;
+      reasonCode: string;
+      acceptedAmount?: number;
+      nextInvoiceState?: string;
+    }
+  ) {
+    return requestApi<{ data?: unknown }>(`/invoices/${invoiceId}/resolution`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  },
+
   getInvestorWorkspaceState(accessToken: string) {
     return requestApi<{ data?: InvestorWorkspaceApiState }>('/workspaces/investor', {
       headers: {

@@ -12,7 +12,7 @@ import {
   ShieldCheck,
   Wallet,
 } from 'lucide-react';
-import { Invoice, InvoiceStatus } from '../types';
+import { Invoice, InvoiceStatus, MainRoute } from '../types';
 
 interface InvoiceQueueViewProps {
   invoices: Invoice[];
@@ -21,6 +21,7 @@ interface InvoiceQueueViewProps {
   onFocusInvoiceForFactoring: (invoiceId: string) => void;
   onFocusInvoiceForDispute: (invoiceId: string) => void;
   onFocusInvoiceForSettlement: (invoiceId: string) => void;
+  onSelectRoute: (route: MainRoute) => void;
 }
 
 const statusLabels: Record<InvoiceStatus, string> = {
@@ -61,6 +62,7 @@ export default function InvoiceQueueView({
   onFocusInvoiceForFactoring,
   onFocusInvoiceForDispute,
   onFocusInvoiceForSettlement,
+  onSelectRoute,
 }: InvoiceQueueViewProps) {
   const [localQuery, setLocalQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | InvoiceStatus>('ALL');
@@ -89,13 +91,13 @@ export default function InvoiceQueueView({
   const metrics = useMemo(() => {
     const outstanding = invoices
       .filter((invoice) => invoice.status !== 'SETTLED')
-      .reduce((total, invoice) => total + invoice.amount, 0);
+      .reduce((total, invoice) => total + (invoice.grossAmount || invoice.amount), 0);
     const financeReady = invoices
       .filter((invoice) => invoice.status === 'ACCEPTED')
-      .reduce((total, invoice) => total + invoice.amount, 0);
+      .reduce((total, invoice) => total + (invoice.grossAmount || invoice.amount), 0);
     const disputed = invoices
       .filter((invoice) => invoice.status === 'DISPUTED')
-      .reduce((total, invoice) => total + invoice.amount, 0);
+      .reduce((total, invoice) => total + (invoice.grossAmount || invoice.amount), 0);
 
     return {
       outstanding,
@@ -165,14 +167,24 @@ export default function InvoiceQueueView({
             Manage submitted invoices, buyer status, and financing readiness.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onOpenUploadModal}
-          className="inline-flex items-center justify-center gap-2 rounded-[6px] bg-[#0052CC] px-4 py-2.5 text-[12px] font-bold uppercase tracking-widest text-white shadow-sm transition-colors hover:bg-[#003D9B]"
-        >
-          <Plus className="h-4 w-4" />
-          Add Invoice
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onOpenUploadModal}
+            className="inline-flex items-center justify-center gap-2 rounded-[6px] bg-[#0052CC] px-4 py-2.5 text-[12px] font-bold uppercase tracking-widest text-white shadow-sm transition-colors hover:bg-[#003D9B]"
+          >
+            <Plus className="h-4 w-4" />
+            Quick Upload
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectRoute('create-invoice')}
+            className="inline-flex items-center justify-center gap-2 rounded-[6px] border border-[#0052CC] bg-white px-4 py-2.5 text-[12px] font-bold uppercase tracking-widest text-[#0052CC] shadow-sm transition-colors hover:bg-blue-50"
+          >
+            <Plus className="h-4 w-4" />
+            Detailed Invoice
+          </button>
+        </div>
       </section>
 
       <section className="grid gap-3 md:grid-cols-4">
@@ -290,7 +302,7 @@ export default function InvoiceQueueView({
                         <p className="mt-1 text-xs font-mono text-slate-400">{invoice.buyerId ?? 'Registered buyer pending'}</p>
                       </td>
                       <td className="px-4 py-4 align-top">
-                        <p className="text-sm font-extrabold text-slate-950">{formatCurrency(invoice.amount)}</p>
+                        <p className="text-sm font-extrabold text-slate-950">{formatCurrency(invoice.grossAmount || invoice.amount)}</p>
                         <p className="mt-1 text-xs text-slate-500">USDC receivable</p>
                       </td>
                       <td className="px-4 py-4 align-top">

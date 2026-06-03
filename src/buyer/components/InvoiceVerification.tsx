@@ -134,7 +134,7 @@ export default function InvoiceVerification({
           <span className="text-slate-400 text-[10px] uppercase font-bold font-sans tracking-tight block">Invoice Amount</span>
           <div className="mt-1.5 flex items-baseline gap-1.5">
             <span className="text-2xl font-extrabold text-slate-950 font-sans tracking-tight">
-              ${invoice.amount.toLocaleString()}
+              ${(invoice.grossAmount || invoice.amount).toLocaleString()}
             </span>
             <span className="font-mono text-xs font-bold text-slate-500">{invoice.currency}</span>
           </div>
@@ -317,9 +317,9 @@ export default function InvoiceVerification({
             <button
               id="btn-dispute-trigger-main"
               onClick={() => setShowDisputeModal(true)}
-              className="flex items-center gap-2 px-5 py-2.5 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg shadow-2xs active:bg-slate-100 transition-colors font-sans"
+              className="flex items-center gap-2 px-5 py-2.5 border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs rounded-lg shadow-2xs active:bg-red-200 transition-colors font-sans"
             >
-              <AlertTriangle className="w-4 h-4 text-slate-400" />
+              <AlertTriangle className="w-4 h-4 text-red-500" />
               <span>Dispute</span>
             </button>
 
@@ -409,7 +409,7 @@ export default function InvoiceVerification({
 
                   <div>
                     <span className="text-slate-405 block text-[10px] font-medium font-sans">Amount</span>
-                    <span className="font-mono font-bold text-slate-900 mt-1 block">USDC {invoice.amount.toLocaleString()}.00</span>
+                    <span className="font-mono font-bold text-slate-900 mt-1 block">USDC {(invoice.grossAmount || invoice.amount).toLocaleString()}.00</span>
                   </div>
                 </div>
               </div>
