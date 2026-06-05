@@ -46,6 +46,9 @@
   --color-on-primary-fixed: #001848;
   --color-on-primary-fixed-variant: #0040a2;
   --color-primary-fixed-dim: #b2c5ff;
+  --color-secondary-container: #6cf8bb;
+  --color-secondary-fixed: #6ffbbe;
+  --color-on-secondary-fixed: #002113;
   
   --shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.03);
   --shadow-medium: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
