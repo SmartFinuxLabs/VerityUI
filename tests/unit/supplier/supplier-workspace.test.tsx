@@ -4,6 +4,18 @@ import { describe, expect, it, vi } from 'vitest';
 import { storeApiSession } from '../../../src/lib/participantAuth';
 import SupplierWorkspace from '../../../src/supplier/SupplierWorkspace';
 
+async function importSupplierApiWorkspace() {
+  vi.stubEnv('VITE_RUN_MODE', 'api');
+  vi.resetModules();
+
+  const [{ default: ApiSupplierWorkspace }, participantAuth] = await Promise.all([
+    import('../../../src/supplier/SupplierWorkspace'),
+    import('../../../src/lib/participantAuth'),
+  ]);
+
+  return { ApiSupplierWorkspace, storeApiSession: participantAuth.storeApiSession };
+}
+
 function mockFetchJson(status: number, body: unknown) {
   const ok = status >= 200 && status < 300;
 
@@ -14,9 +26,13 @@ function mockFetchJson(status: number, body: unknown) {
   });
 }
 
-function storeSupplierApiSession() {
-  storeApiSession({
-    user: { id: 'supplier-user-1', email: 'supplier@test.local', userMetadata: { participantRole: 'Supplier' } },
+function storeSupplierApiSession(storeSession = storeApiSession, options?: { entityName?: string }) {
+  storeSession({
+    user: {
+      id: 'supplier-user-1',
+      email: 'supplier@test.local',
+      userMetadata: { participantRole: 'Supplier', entityName: options?.entityName },
+    },
     accessToken: 'supplier-token',
   });
 }
@@ -112,7 +128,8 @@ describe('SupplierWorkspace module', () => {
 
   it('shows an empty invoice queue state when supplier clicks Invoice Queue with no invoices', async () => {
     const user = userEvent.setup();
-    storeSupplierApiSession();
+    const { ApiSupplierWorkspace, storeApiSession: apiStoreApiSession } = await importSupplierApiWorkspace();
+    storeSupplierApiSession(apiStoreApiSession);
     vi.stubGlobal(
       'fetch',
       mockFetchJson(200, {
@@ -120,7 +137,7 @@ describe('SupplierWorkspace module', () => {
       })
     );
 
-    render(<SupplierWorkspace accessRole="Supplier" />);
+    render(<ApiSupplierWorkspace accessRole="Supplier" />);
 
     await user.click(await screen.findByRole('button', { name: /Invoice Queue/i }));
 
@@ -129,7 +146,8 @@ describe('SupplierWorkspace module', () => {
 
   it('shows API invoice number instead of API invoice id in supplier invoice queue', async () => {
     const user = userEvent.setup();
-    storeSupplierApiSession();
+    const { ApiSupplierWorkspace, storeApiSession: apiStoreApiSession } = await importSupplierApiWorkspace();
+    storeSupplierApiSession(apiStoreApiSession);
     vi.stubGlobal(
       'fetch',
       mockFetchJson(200, {
@@ -149,7 +167,7 @@ describe('SupplierWorkspace module', () => {
       })
     );
 
-    render(<SupplierWorkspace accessRole="Supplier" />);
+    render(<ApiSupplierWorkspace accessRole="Supplier" />);
 
     await user.click(await screen.findByRole('button', { name: /Invoice Queue/i }));
 
@@ -160,7 +178,8 @@ describe('SupplierWorkspace module', () => {
   });
 
   it('loads supplier analytics from VerityAPI and renders the dashboard overview', async () => {
-    storeSupplierApiSession();
+    const { ApiSupplierWorkspace, storeApiSession: apiStoreApiSession } = await importSupplierApiWorkspace();
+    storeSupplierApiSession(apiStoreApiSession);
     const fetchMock = vi.fn((url: string) => {
       if (url.includes('/workspaces/supplier/analytics')) {
         return Promise.resolve({
@@ -211,7 +230,7 @@ describe('SupplierWorkspace module', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<SupplierWorkspace accessRole="Supplier" />);
+    render(<ApiSupplierWorkspace accessRole="Supplier" />);
 
     expect(await screen.findByText(/Analytics Overview/i)).toBeInTheDocument();
     expect(screen.getByText(/42,000 USDC/i)).toBeInTheDocument();
@@ -230,7 +249,8 @@ describe('SupplierWorkspace module', () => {
 
   it('shows an empty disputes state when supplier clicks Disputes with no disputes', async () => {
     const user = userEvent.setup();
-    storeSupplierApiSession();
+    const { ApiSupplierWorkspace, storeApiSession: apiStoreApiSession } = await importSupplierApiWorkspace();
+    storeSupplierApiSession(apiStoreApiSession);
     vi.stubGlobal(
       'fetch',
       mockFetchJson(200, {
@@ -238,7 +258,7 @@ describe('SupplierWorkspace module', () => {
       })
     );
 
-    render(<SupplierWorkspace accessRole="Supplier" />);
+    render(<ApiSupplierWorkspace accessRole="Supplier" />);
 
     await user.click(await screen.findByRole('button', { name: /Disputes/i }));
 
@@ -247,7 +267,8 @@ describe('SupplierWorkspace module', () => {
 
   it('loads buyer choices for invoice upload from registered buyers', async () => {
     const user = userEvent.setup();
-    storeSupplierApiSession();
+    const { ApiSupplierWorkspace, storeApiSession: apiStoreApiSession } = await importSupplierApiWorkspace();
+    storeSupplierApiSession(apiStoreApiSession);
     vi.stubGlobal(
       'fetch',
       mockFetchJson(200, {
@@ -263,7 +284,7 @@ describe('SupplierWorkspace module', () => {
       })
     );
 
-    render(<SupplierWorkspace accessRole="Supplier" />);
+    render(<ApiSupplierWorkspace accessRole="Supplier" />);
 
     await user.click(await screen.findByRole('button', { name: /New Funding Request/i }));
 
@@ -274,7 +295,8 @@ describe('SupplierWorkspace module', () => {
 
   it('requires registered buyer selection from Verity database when no buyer options are available', async () => {
     const user = userEvent.setup();
-    storeSupplierApiSession();
+    const { ApiSupplierWorkspace, storeApiSession: apiStoreApiSession } = await importSupplierApiWorkspace();
+    storeSupplierApiSession(apiStoreApiSession);
     vi.stubGlobal(
       'fetch',
       mockFetchJson(200, {
@@ -282,7 +304,7 @@ describe('SupplierWorkspace module', () => {
       })
     );
 
-    render(<SupplierWorkspace accessRole="Supplier" />);
+    render(<ApiSupplierWorkspace accessRole="Supplier" />);
 
     await user.click(await screen.findByRole('button', { name: /New Funding Request/i }));
 
@@ -294,7 +316,8 @@ describe('SupplierWorkspace module', () => {
 
   it('submits invoice with selected registered buyer from Verity database', async () => {
     const user = userEvent.setup();
-    storeSupplierApiSession();
+    const { ApiSupplierWorkspace, storeApiSession: apiStoreApiSession } = await importSupplierApiWorkspace();
+    storeSupplierApiSession(apiStoreApiSession, { entityName: 'Supplier Legal Name LLC' });
     let invoiceCreated = false;
     const fetchMock = vi.fn((url: string, init?: RequestInit) => {
       if (url.includes('/invoices') && init?.method === 'POST') {
@@ -336,7 +359,7 @@ describe('SupplierWorkspace module', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<SupplierWorkspace accessRole="Supplier" />);
+    render(<ApiSupplierWorkspace accessRole="Supplier" />);
 
     await user.click(await screen.findByRole('button', { name: /New Funding Request/i }));
     await user.click(screen.getByRole('button', { name: /Verify & Submit/i }));
@@ -353,6 +376,14 @@ describe('SupplierWorkspace module', () => {
           body: expect.stringContaining('"supplierId":"supplier-org-1"'),
         })
       );
+    });
+
+    const invoiceCall = fetchMock.mock.calls.find(([url, init]) => String(url).includes('/invoices') && init?.method === 'POST');
+    expect(invoiceCall).toBeDefined();
+    expect(JSON.parse(String(invoiceCall?.[1]?.body))).toMatchObject({
+      metadata: {
+        supplierName: 'Supplier Legal Name LLC',
+      },
     });
 
     await user.click(screen.getByRole('button', { name: /Close & View Registry/i }));

@@ -177,6 +177,7 @@ export default function SupplierWorkspace({
       const invoiceNumber = newInvoice.invoiceNumber ?? newInvoice.id;
       const issueDate = toApiDate(newInvoice.issueDate ?? '', now);
       const dueDate = toApiDate(newInvoice.dueDate ?? newInvoice.maturityDate, new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000));
+      const supplierDisplayName = snapshot.entityName?.trim();
 
       await verityApi.createInvoice(snapshot.accessToken, {
         supplierId: activeSupplierOrganizationId,
@@ -191,6 +192,7 @@ export default function SupplierWorkspace({
         metadata: {
           buyerName: newInvoice.buyer,
           supplierId: activeSupplierOrganizationId,
+          ...(supplierDisplayName ? { supplierName: supplierDisplayName } : {}),
           itemDescription: newInvoice.itemDescription,
           originalQty: newInvoice.originalQty,
           unitPrice: newInvoice.unitPrice,

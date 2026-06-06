@@ -245,6 +245,129 @@ function normalizeSupplierApiInvoice(invoice: SupplierInvoice): SupplierInvoice 
   };
 }
 
+function normalizeBuyerStatus(status?: string): BuyerInvoice['status'] {
+  const normalized = (status ?? '').toUpperCase();
+  if (normalized === 'PENDING' || normalized === 'SUBMITTED' || normalized === 'UNDER_REVIEW') return 'PENDING_VERIFICATION';
+  if (normalized === 'ACCEPTED' || normalized === 'PARTIALLY_ACCEPTED') return 'VERIFIED';
+  if (normalized === 'DISPUTED' || normalized === 'HELD' || normalized === 'REJECTED') return 'CONTESTED';
+  if (normalized === 'FACTORED') return 'FACTORED';
+  if (normalized === 'SETTLED') return 'SETTLED';
+  if (normalized === 'VERIFIED' || normalized === 'CONTESTED' || normalized === 'PENDING_VERIFICATION') {
+    return normalized as BuyerInvoice['status'];
+  }
+  return 'PENDING_VERIFICATION';
+}
+
+function readOptionalString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+}
+
+function readDisplayString(excludedValue: string | undefined, ...values: unknown[]) {
+  const excluded = excludedValue?.trim();
+  for (const value of values) {
+    if (typeof value !== 'string') continue;
+
+    const candidate = value.trim();
+    if (
+      candidate.length > 0 &&
+      candidate !== excluded &&
+      candidate.toLowerCase() !== 'supplier name unavailable'
+    ) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeBuyerApiInvoice(invoice: BuyerInvoice): BuyerInvoice {
+  const rawInvoice = invoice as BuyerInvoice & {
+    invoice_number?: string;
+    supplier_name?: string;
+    supplier_id?: string;
+    supplier?: {
+      legal_name?: string;
+      legalName?: string;
+      name?: string;
+      display_name?: string;
+      displayName?: string;
+    };
+    issue_date?: string;
+    due_date?: string;
+    maturity_date?: string;
+    factored_amount?: number;
+    settled_at?: string;
+    paid_at?: string;
+    discount_amount?: number;
+    payment_status?: string;
+    metadata?: {
+      invoiceNumber?: string;
+      invoice_number?: string;
+      supplierName?: string;
+      supplier_name?: string;
+      supplierLegalName?: string;
+      supplier_legal_name?: string;
+      supplierDisplayName?: string;
+      supplier_display_name?: string;
+      factoredAmount?: number;
+      factored_amount?: number;
+      settledAt?: string;
+      settled_at?: string;
+      paidAt?: string;
+      paid_at?: string;
+      discountAmount?: number;
+      discount_amount?: number;
+      paymentStatus?: string;
+      payment_status?: string;
+    };
+  };
+
+  const supplierId = readOptionalString(rawInvoice.supplierId, rawInvoice.supplier_id);
+  const invoiceNumber =
+    rawInvoice.invoiceNumber ??
+    rawInvoice.invoice_number ??
+    rawInvoice.metadata?.invoiceNumber ??
+    rawInvoice.metadata?.invoice_number;
+  const supplierName = readDisplayString(
+    supplierId,
+    rawInvoice.supplier?.legal_name,
+    rawInvoice.supplier?.legalName,
+    rawInvoice.supplier?.display_name,
+    rawInvoice.supplier?.displayName,
+    rawInvoice.supplier?.name,
+    rawInvoice.metadata?.supplierLegalName,
+    rawInvoice.metadata?.supplier_legal_name,
+    rawInvoice.metadata?.supplierDisplayName,
+    rawInvoice.metadata?.supplier_display_name,
+    rawInvoice.supplierName,
+    rawInvoice.supplier_name,
+    rawInvoice.metadata?.supplierName,
+    rawInvoice.metadata?.supplier_name
+  );
+
+  return {
+    ...invoice,
+    invoiceNumber,
+    supplierName: supplierName ?? 'Supplier name unavailable',
+    supplierId: supplierId ?? rawInvoice.supplierName ?? rawInvoice.supplier_name,
+    issueDate: rawInvoice.issueDate ?? rawInvoice.issue_date,
+    dueDate: rawInvoice.dueDate ?? rawInvoice.due_date ?? rawInvoice.maturity_date,
+    maturityDate: rawInvoice.maturityDate ?? rawInvoice.maturity_date ?? rawInvoice.due_date ?? rawInvoice.dueDate,
+    status: normalizeBuyerStatus(rawInvoice.status),
+    factoredAmount: rawInvoice.factoredAmount ?? rawInvoice.factored_amount ?? rawInvoice.metadata?.factoredAmount ?? rawInvoice.metadata?.factored_amount,
+    settledAt: rawInvoice.settledAt ?? rawInvoice.settled_at ?? rawInvoice.metadata?.settledAt ?? rawInvoice.metadata?.settled_at,
+    paidAt: rawInvoice.paidAt ?? rawInvoice.paid_at ?? rawInvoice.metadata?.paidAt ?? rawInvoice.metadata?.paid_at,
+    discountAmount: rawInvoice.discountAmount ?? rawInvoice.discount_amount ?? rawInvoice.metadata?.discountAmount ?? rawInvoice.metadata?.discount_amount,
+    paymentStatus: rawInvoice.paymentStatus ?? rawInvoice.payment_status ?? rawInvoice.metadata?.paymentStatus ?? rawInvoice.metadata?.payment_status,
+  };
+}
+
 export async function loadBuyerWorkspaceState(
   snapshot: ParticipantAccessSnapshot | null = getParticipantAccessSnapshot()
 ): Promise<BuyerWorkspaceState> {
@@ -254,7 +377,7 @@ export async function loadBuyerWorkspaceState(
 
   const { data } = await verityApi.getBuyerWorkspaceState(requireApiToken(snapshot));
   return {
-    invoices: data?.invoices ?? [],
+    invoices: (data?.invoices ?? []).map(normalizeBuyerApiInvoice),
     fundingRequests: data?.fundingRequests ?? [],
     liquidity:
       data?.liquidity ??

@@ -1,12 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ApiAuthSession } from '../../../src/lib/apiClient';
-import { storeApiSession, storeDemoAccess } from '../../../src/lib/participantAuth';
+import { storeDemoAccess } from '../../../src/lib/participantAuth';
 import {
   getBuyerWorkspaceInitialState,
   isDemoWorkspaceDataMode,
-  loadBuyerWorkspaceState,
-  loadInvestorWorkspaceState,
-  loadSupplierWorkspaceState,
 } from '../../../src/lib/workspaceData';
 import { INITIAL_INVOICES as BUYER_INVOICES } from '../../../src/buyer/data';
 import { INITIAL_INVOICES as SUPPLIER_INVOICES } from '../../../src/supplier/data';
@@ -22,9 +19,20 @@ function mockFetchJson(status: number, body: unknown) {
   });
 }
 
+async function importApiWorkspaceModules() {
+  vi.stubEnv('VITE_RUN_MODE', 'api');
+  vi.resetModules();
+
+  const participantAuth = await import('../../../src/lib/participantAuth');
+  const workspaceData = await import('../../../src/lib/workspaceData');
+
+  return { participantAuth, workspaceData };
+}
+
 describe('workspace data services', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.resetModules();
   });
 
   it('uses demo workspace data when runtime access is demo', () => {
@@ -57,7 +65,8 @@ describe('workspace data services', () => {
   });
 
   it('loads buyer workspace state from VerityAPI in API mode', async () => {
-    storeApiSession({
+    const { participantAuth, workspaceData } = await importApiWorkspaceModules();
+    participantAuth.storeApiSession({
       user: { id: 'user_1', email: 'buyer@test.local', userMetadata: { participantRole: 'Buyer' } },
       accessToken: 'access-token',
     });
@@ -82,7 +91,7 @@ describe('workspace data services', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(loadBuyerWorkspaceState()).resolves.toMatchObject({
+    await expect(workspaceData.loadBuyerWorkspaceState()).resolves.toMatchObject({
       invoices: [
         {
           id: 'API-BUYER-001',
@@ -105,8 +114,254 @@ describe('workspace data services', () => {
     );
   });
 
+  it('normalizes snake-case buyer invoice display fields from VerityAPI', async () => {
+    const { participantAuth, workspaceData } = await importApiWorkspaceModules();
+    participantAuth.storeApiSession({
+      user: { id: 'user_1', email: 'buyer@test.local', userMetadata: { participantRole: 'Buyer' } },
+      accessToken: 'access-token',
+    });
+    vi.stubGlobal(
+      'fetch',
+      mockFetchJson(200, {
+        data: {
+          invoices: [
+            {
+              id: 'uuid-buyer-invoice-1',
+              invoice_number: 'INV-API-BUYER-900',
+              supplier_name: 'API Supplier Legal LLC',
+              supplier_id: 'supplier-uuid-1',
+              amount: 19000,
+              currency: 'USDC',
+              issue_date: '2026-06-01',
+              due_date: '2026-06-30',
+              maturity_date: '2026-06-30',
+              status: 'PENDING',
+            },
+          ],
+          fundingRequests: [],
+          liquidity: {
+            availableLiquidity: 1,
+            walletAddress: '0xapi',
+            walletName: 'API Vault',
+            isConnected: true,
+          },
+        },
+      })
+    );
+
+    await expect(workspaceData.loadBuyerWorkspaceState()).resolves.toMatchObject({
+      invoices: [
+        {
+          id: 'uuid-buyer-invoice-1',
+          invoiceNumber: 'INV-API-BUYER-900',
+          supplierName: 'API Supplier Legal LLC',
+          supplierId: 'supplier-uuid-1',
+          issueDate: '2026-06-01',
+          dueDate: '2026-06-30',
+          maturityDate: '2026-06-30',
+        },
+      ],
+    });
+  });
+
+  it('normalizes nested buyer supplier legal names from VerityAPI', async () => {
+    const { participantAuth, workspaceData } = await importApiWorkspaceModules();
+    participantAuth.storeApiSession({
+      user: { id: 'user_1', email: 'buyer@test.local', userMetadata: { participantRole: 'Buyer' } },
+      accessToken: 'access-token',
+    });
+    vi.stubGlobal(
+      'fetch',
+      mockFetchJson(200, {
+        data: {
+          invoices: [
+            {
+              id: 'uuid-buyer-invoice-nested-supplier',
+              invoice_number: 'INV-API-BUYER-902',
+              supplier_id: 'supplier-uuid-902',
+              supplier: { legal_name: 'Nested Supplier Legal LLC' },
+              amount: 21000,
+              currency: 'USDC',
+              issue_date: '2026-06-03',
+              due_date: '2026-07-03',
+              status: 'SUBMITTED',
+            },
+          ],
+          fundingRequests: [],
+          liquidity: {
+            availableLiquidity: 1,
+            walletAddress: '0xapi',
+            walletName: 'API Vault',
+            isConnected: true,
+          },
+        },
+      })
+    );
+
+    await expect(workspaceData.loadBuyerWorkspaceState()).resolves.toMatchObject({
+      invoices: [
+        {
+          id: 'uuid-buyer-invoice-nested-supplier',
+          invoiceNumber: 'INV-API-BUYER-902',
+          supplierName: 'Nested Supplier Legal LLC',
+          supplierId: 'supplier-uuid-902',
+        },
+      ],
+    });
+  });
+
+  it('prefers nested supplier legal names over id-like supplier name fields from VerityAPI', async () => {
+    const { participantAuth, workspaceData } = await importApiWorkspaceModules();
+    participantAuth.storeApiSession({
+      user: { id: 'user_1', email: 'buyer@test.local', userMetadata: { participantRole: 'Buyer' } },
+      accessToken: 'access-token',
+    });
+    vi.stubGlobal(
+      'fetch',
+      mockFetchJson(200, {
+        data: {
+          invoices: [
+            {
+              id: 'uuid-buyer-invoice-id-like-supplier',
+              invoice_number: 'INV-API-BUYER-903',
+              supplier_name: 'supplier-uuid-903',
+              supplier_id: 'supplier-uuid-903',
+              supplier: { legal_name: 'Resolved Supplier Legal LLC' },
+              amount: 21000,
+              currency: 'USDC',
+              issue_date: '2026-06-03',
+              due_date: '2026-07-03',
+              status: 'SUBMITTED',
+            },
+          ],
+          fundingRequests: [],
+          liquidity: {
+            availableLiquidity: 1,
+            walletAddress: '0xapi',
+            walletName: 'API Vault',
+            isConnected: true,
+          },
+        },
+      })
+    );
+
+    await expect(workspaceData.loadBuyerWorkspaceState()).resolves.toMatchObject({
+      invoices: [
+        {
+          id: 'uuid-buyer-invoice-id-like-supplier',
+          supplierName: 'Resolved Supplier Legal LLC',
+          supplierId: 'supplier-uuid-903',
+        },
+      ],
+    });
+  });
+
+  it('prefers nested supplier legal names over placeholder supplier name fields from VerityAPI', async () => {
+    const { participantAuth, workspaceData } = await importApiWorkspaceModules();
+    participantAuth.storeApiSession({
+      user: { id: 'user_1', email: 'buyer@test.local', userMetadata: { participantRole: 'Buyer' } },
+      accessToken: 'access-token',
+    });
+    vi.stubGlobal(
+      'fetch',
+      mockFetchJson(200, {
+        data: {
+          invoices: [
+            {
+              id: 'uuid-buyer-invoice-placeholder-supplier',
+              invoice_number: 'INV-API-BUYER-904',
+              supplier_name: 'Supplier name unavailable',
+              supplier_id: 'supplier-uuid-904',
+              supplier: { legal_name: 'Placeholder Resolved Supplier LLC' },
+              amount: 21000,
+              currency: 'USDC',
+              issue_date: '2026-06-03',
+              due_date: '2026-07-03',
+              status: 'SUBMITTED',
+            },
+          ],
+          fundingRequests: [],
+          liquidity: {
+            availableLiquidity: 1,
+            walletAddress: '0xapi',
+            walletName: 'API Vault',
+            isConnected: true,
+          },
+        },
+      })
+    );
+
+    await expect(workspaceData.loadBuyerWorkspaceState()).resolves.toMatchObject({
+      invoices: [
+        {
+          id: 'uuid-buyer-invoice-placeholder-supplier',
+          supplierName: 'Placeholder Resolved Supplier LLC',
+          supplierId: 'supplier-uuid-904',
+        },
+      ],
+    });
+  });
+
+  it('normalizes optional buyer factoring and payment fields from VerityAPI', async () => {
+    const { participantAuth, workspaceData } = await importApiWorkspaceModules();
+    participantAuth.storeApiSession({
+      user: { id: 'user_1', email: 'buyer@test.local', userMetadata: { participantRole: 'Buyer' } },
+      accessToken: 'access-token',
+    });
+    vi.stubGlobal(
+      'fetch',
+      mockFetchJson(200, {
+        data: {
+          invoices: [
+            {
+              id: 'uuid-buyer-invoice-2',
+              invoice_number: 'INV-API-BUYER-901',
+              supplier_name: 'Factored API Supplier LLC',
+              supplier_id: 'supplier-uuid-2',
+              amount: 44000,
+              currency: 'USDC',
+              issue_date: '2026-06-02',
+              due_date: '2026-07-02',
+              status: 'FACTORED',
+              factored_amount: 43000,
+              settled_at: '2026-07-03T00:00:00.000Z',
+              paid_at: '2026-07-03T01:00:00.000Z',
+              discount_amount: 1000,
+              payment_status: 'PAID',
+            },
+          ],
+          fundingRequests: [],
+          liquidity: {
+            availableLiquidity: 1,
+            walletAddress: '0xapi',
+            walletName: 'API Vault',
+            isConnected: true,
+          },
+        },
+      })
+    );
+
+    await expect(workspaceData.loadBuyerWorkspaceState()).resolves.toMatchObject({
+      invoices: [
+        {
+          id: 'uuid-buyer-invoice-2',
+          invoiceNumber: 'INV-API-BUYER-901',
+          supplierName: 'Factored API Supplier LLC',
+          supplierId: 'supplier-uuid-2',
+          status: 'FACTORED',
+          factoredAmount: 43000,
+          settledAt: '2026-07-03T00:00:00.000Z',
+          paidAt: '2026-07-03T01:00:00.000Z',
+          discountAmount: 1000,
+          paymentStatus: 'PAID',
+        },
+      ],
+    });
+  });
+
   it('loads supplier workspace state from VerityAPI without demo fallback', async () => {
-    storeApiSession({
+    const { participantAuth, workspaceData } = await importApiWorkspaceModules();
+    participantAuth.storeApiSession({
       user: { id: 'user_2', email: 'supplier@test.local', userMetadata: { participantRole: 'Supplier' } },
       accessToken: 'supplier-token',
     });
@@ -125,7 +380,7 @@ describe('workspace data services', () => {
       })
     );
 
-    const state = await loadSupplierWorkspaceState();
+    const state = await workspaceData.loadSupplierWorkspaceState();
 
     expect(state.invoices).toEqual([]);
     expect(state.registeredBuyers).toEqual([
@@ -136,7 +391,8 @@ describe('workspace data services', () => {
   });
 
   it('preserves supplier invoice numbers and invoice dates from VerityAPI', async () => {
-    storeApiSession({
+    const { participantAuth, workspaceData } = await importApiWorkspaceModules();
+    participantAuth.storeApiSession({
       user: { id: 'user_2', email: 'supplier@test.local', userMetadata: { participantRole: 'Supplier' } },
       accessToken: 'supplier-token',
     });
@@ -166,7 +422,7 @@ describe('workspace data services', () => {
       })
     );
 
-    await expect(loadSupplierWorkspaceState()).resolves.toMatchObject({
+    await expect(workspaceData.loadSupplierWorkspaceState()).resolves.toMatchObject({
       invoices: [
         {
           id: 'supplier-invoice-1',
@@ -179,7 +435,8 @@ describe('workspace data services', () => {
   });
 
   it('normalizes snake-case supplier invoice numbers from VerityAPI', async () => {
-    storeApiSession({
+    const { participantAuth, workspaceData } = await importApiWorkspaceModules();
+    participantAuth.storeApiSession({
       user: { id: 'user_2', email: 'supplier@test.local', userMetadata: { participantRole: 'Supplier' } },
       accessToken: 'supplier-token',
     });
@@ -209,7 +466,7 @@ describe('workspace data services', () => {
       })
     );
 
-    await expect(loadSupplierWorkspaceState()).resolves.toMatchObject({
+    await expect(workspaceData.loadSupplierWorkspaceState()).resolves.toMatchObject({
       invoices: [
         {
           id: 'uuid-supplier-invoice-2',
@@ -222,7 +479,8 @@ describe('workspace data services', () => {
   });
 
   it('loads investor workspace state from VerityAPI without demo fallback', async () => {
-    storeApiSession({
+    const { participantAuth, workspaceData } = await importApiWorkspaceModules();
+    participantAuth.storeApiSession({
       user: { id: 'user_3', email: 'investor@test.local', userMetadata: { participantRole: 'Investor' } },
       accessToken: 'investor-token',
     });
@@ -242,7 +500,7 @@ describe('workspace data services', () => {
       })
     );
 
-    const state = await loadInvestorWorkspaceState();
+    const state = await workspaceData.loadInvestorWorkspaceState();
 
     expect(state.invoices).toEqual([]);
     expect(state.invoices).not.toEqual(INVESTOR_INVOICES);
