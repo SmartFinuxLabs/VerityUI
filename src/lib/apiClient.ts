@@ -46,7 +46,11 @@ export interface SupplierAnalyticsApiState {
   financialHealth?: {
     disputeRatio: number;
     onChainCreditScore: number;
+    totalOutstanding?: number;
+    totalFactored?: number;
+    liquidityRatio?: number;
   };
+  creditHistory?: { period: string; score: number }[];
 }
 
 export interface CreateInvoicePayload {

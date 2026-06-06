@@ -21,6 +21,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Invoice, FundingRequest, LiquidityProfile } from '../types';
+import { getInvoiceDisplayNumber } from '../../lib/invoiceDisplay';
 
 interface OverviewDashboardProps {
   invoices: Invoice[];
@@ -225,7 +226,7 @@ export default function OverviewDashboard({
                 <thead>
                   <tr className="border-b border-[#E5E7EB] bg-slate-50/30 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
                     <th className="py-2.5 px-4 font-semibold">Supplier</th>
-                    <th className="py-2.5 px-4 font-semibold">Invoice ID</th>
+                    <th className="py-2.5 px-4 font-semibold">Invoice Number</th>
                     <th className="py-2.5 px-4 font-semibold text-right">Amount</th>
                     <th className="py-2.5 px-4 font-semibold">Maturity Date</th>
                     <th className="py-2.5 px-4 font-semibold text-center">Action</th>
@@ -255,7 +256,7 @@ export default function OverviewDashboard({
                           </div>
                         </td>
                         <td className="py-3 px-4 font-mono font-bold text-slate-600">
-                          {inv.id}
+                          {getInvoiceDisplayNumber(inv)}
                         </td>
                         <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
                           {inv.amount.toLocaleString()} <span className="text-slate-400 text-[10px] font-medium">{inv.currency}</span>

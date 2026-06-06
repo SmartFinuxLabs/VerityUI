@@ -2,12 +2,15 @@ export type InvoiceStatus = 'PENDING' | 'ACCEPTED' | 'FACTORED' | 'SETTLED' | 'D
 
 export interface Invoice {
   id: string;
+  invoiceNumber?: string;
   buyerId?: string;
   buyer: string;
   amount: number;
   grossAmount?: number;
   acceptedAmount?: number;
   maturityDate: string;
+  issueDate?: string;
+  dueDate?: string;
   status: InvoiceStatus;
   originalQty?: number;
   unitPrice?: number;
@@ -21,6 +24,8 @@ export interface Invoice {
   rebuttalDetail?: string;
   rebuttalEvidenceFile?: string;
   smartContractAddress?: string;
+  poNumber?: string;
+  goodsReceiptNumber?: string;
   lifecycleTimeline?: {
     registered: string;
     approved?: string;

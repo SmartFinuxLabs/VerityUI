@@ -61,7 +61,13 @@ describe('workspace data services', () => {
       user: { id: 'user_1', email: 'buyer@test.local', userMetadata: { participantRole: 'Buyer' } },
       accessToken: 'access-token',
     });
-    const apiInvoice = { ...BUYER_INVOICES[0], id: 'API-BUYER-001' };
+    const apiInvoice = {
+      ...BUYER_INVOICES[0],
+      id: 'API-BUYER-001',
+      invoiceNumber: 'INV-API-BUYER-001',
+      issueDate: '2026-06-05',
+      dueDate: '2026-07-05',
+    };
     const fetchMock = mockFetchJson(200, {
       data: {
         invoices: [apiInvoice],
@@ -77,7 +83,14 @@ describe('workspace data services', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(loadBuyerWorkspaceState()).resolves.toMatchObject({
-      invoices: [{ id: 'API-BUYER-001' }],
+      invoices: [
+        {
+          id: 'API-BUYER-001',
+          invoiceNumber: 'INV-API-BUYER-001',
+          issueDate: '2026-06-05',
+          dueDate: '2026-07-05',
+        },
+      ],
       fundingRequests: [],
       liquidity: { walletName: 'API Vault' },
     });
@@ -120,6 +133,92 @@ describe('workspace data services', () => {
     ]);
     expect(state.invoices).not.toEqual(SUPPLIER_INVOICES);
     expect(state.walletConnected).toBe(false);
+  });
+
+  it('preserves supplier invoice numbers and invoice dates from VerityAPI', async () => {
+    storeApiSession({
+      user: { id: 'user_2', email: 'supplier@test.local', userMetadata: { participantRole: 'Supplier' } },
+      accessToken: 'supplier-token',
+    });
+    vi.stubGlobal(
+      'fetch',
+      mockFetchJson(200, {
+        data: {
+          invoices: [
+            {
+              id: 'supplier-invoice-1',
+              invoiceNumber: 'INV-API-SUP-001',
+              buyer: 'Northstar Buyer LLC',
+              amount: 42000,
+              maturityDate: '2026-07-05',
+              issueDate: '2026-06-05',
+              dueDate: '2026-07-05',
+              status: 'ACCEPTED',
+            },
+          ],
+          registeredBuyers: [],
+          availableLiquidity: 0,
+          escrowValue: 0,
+          onChainCredit: 0,
+          walletConnected: false,
+          walletAddress: null,
+        },
+      })
+    );
+
+    await expect(loadSupplierWorkspaceState()).resolves.toMatchObject({
+      invoices: [
+        {
+          id: 'supplier-invoice-1',
+          invoiceNumber: 'INV-API-SUP-001',
+          issueDate: '2026-06-05',
+          dueDate: '2026-07-05',
+        },
+      ],
+    });
+  });
+
+  it('normalizes snake-case supplier invoice numbers from VerityAPI', async () => {
+    storeApiSession({
+      user: { id: 'user_2', email: 'supplier@test.local', userMetadata: { participantRole: 'Supplier' } },
+      accessToken: 'supplier-token',
+    });
+    vi.stubGlobal(
+      'fetch',
+      mockFetchJson(200, {
+        data: {
+          invoices: [
+            {
+              id: 'uuid-supplier-invoice-2',
+              invoice_number: 'INV-API-SNAKE-002',
+              buyer: 'Northstar Buyer LLC',
+              amount: 42000,
+              maturityDate: '2026-07-05',
+              issue_date: '2026-06-05',
+              due_date: '2026-07-05',
+              status: 'ACCEPTED',
+            },
+          ],
+          registeredBuyers: [],
+          availableLiquidity: 0,
+          escrowValue: 0,
+          onChainCredit: 0,
+          walletConnected: false,
+          walletAddress: null,
+        },
+      })
+    );
+
+    await expect(loadSupplierWorkspaceState()).resolves.toMatchObject({
+      invoices: [
+        {
+          id: 'uuid-supplier-invoice-2',
+          invoiceNumber: 'INV-API-SNAKE-002',
+          issueDate: '2026-06-05',
+          dueDate: '2026-07-05',
+        },
+      ],
+    });
   });
 
   it('loads investor workspace state from VerityAPI without demo fallback', async () => {

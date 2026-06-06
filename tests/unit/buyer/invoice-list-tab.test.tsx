@@ -8,6 +8,7 @@ import type { Invoice, LiquidityProfile } from '../../../src/buyer/types';
 const invoices: Invoice[] = [
   {
     id: 'INV-2026-089',
+    invoiceNumber: 'INV-BUYER-089',
     supplierName: 'Northstar Components',
     supplierId: 'SUP-100',
     walletAddress: '0x123',
@@ -60,10 +61,33 @@ describe('buyer InvoiceListTab component functions', () => {
       />
     );
 
-    const firstDataRow = screen.getAllByText('INV-2026-089')[0].closest('tr');
+    const firstDataRow = screen.getAllByText('INV-BUYER-089')[0].closest('tr');
     expect(firstDataRow).not.toBeNull();
 
     await user.click(within(firstDataRow as HTMLTableRowElement).getByRole('button', { name: 'Review' }));
+
+    expect(onSelectInvoiceDetails).toHaveBeenCalledWith('INV-2026-089');
+  });
+
+  it('shows invoice numbers as the user-facing invoice identifier', async () => {
+    const user = userEvent.setup();
+    const onSelectInvoiceDetails = vi.fn();
+
+    render(
+      <InvoiceListTab
+        invoices={invoices}
+        liquidity={liquidity}
+        onSelectInvoiceDetails={onSelectInvoiceDetails}
+        onApproveInvoice={vi.fn()}
+        onRejectOrDispute={vi.fn()}
+      />
+    );
+
+    const table = screen.getByRole('table');
+    expect(within(table).getByRole('columnheader', { name: /Invoice Number/i })).toBeInTheDocument();
+    expect(within(table).queryByText(/Invoice ID/i)).not.toBeInTheDocument();
+
+    await user.click(within(table).getByRole('button', { name: 'INV-BUYER-089' }));
 
     expect(onSelectInvoiceDetails).toHaveBeenCalledWith('INV-2026-089');
   });

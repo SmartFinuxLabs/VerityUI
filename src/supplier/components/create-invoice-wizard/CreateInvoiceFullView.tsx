@@ -15,11 +15,17 @@ interface CreateInvoiceFullViewProps {
 export default function CreateInvoiceFullView({ onSelectRoute, onSubmitFullInvoice, buyerOptions }: CreateInvoiceFullViewProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedBuyerId, setSelectedBuyerId] = useState<string | null>(null);
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [issueDate, setIssueDate] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const [items, setItems] = useState<LineItem[]>(INITIAL_ITEMS);
 
   const handleFinish = () => {
     const selectedBuyer = buyerOptions.find(b => b.buyerId === selectedBuyerId);
     onSubmitFullInvoice({
+      invoiceNumber: invoiceNumber.trim(),
+      issueDate,
+      dueDate,
       customer: {
         id: selectedBuyerId,
         name: selectedBuyer?.buyerName || 'Unknown Buyer'
@@ -37,6 +43,12 @@ export default function CreateInvoiceFullView({ onSelectRoute, onSubmitFullInvoi
           buyerOptions={buyerOptions} 
           selectedBuyerId={selectedBuyerId}
           onChangeBuyerId={setSelectedBuyerId}
+          invoiceNumber={invoiceNumber}
+          issueDate={issueDate}
+          dueDate={dueDate}
+          onChangeInvoiceNumber={setInvoiceNumber}
+          onChangeIssueDate={setIssueDate}
+          onChangeDueDate={setDueDate}
         />
       )}
       {currentStep === 2 && (
@@ -51,6 +63,13 @@ export default function CreateInvoiceFullView({ onSelectRoute, onSubmitFullInvoi
         <Step3Preview 
           onBack={() => setCurrentStep(2)} 
           onSubmit={handleFinish}
+          invoiceDetails={{
+            invoiceNumber,
+            issueDate,
+            dueDate,
+            buyerName: buyerOptions.find(b => b.buyerId === selectedBuyerId)?.buyerName,
+            items,
+          }}
         />
       )}
       {currentStep === 4 && (

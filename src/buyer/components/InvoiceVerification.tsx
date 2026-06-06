@@ -19,6 +19,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Invoice, LiquidityProfile } from '../types';
+import { getInvoiceDisplayNumber } from '../../lib/invoiceDisplay';
 
 interface InvoiceVerificationProps {
   invoice: Invoice;
@@ -98,7 +99,7 @@ export default function InvoiceVerification({
               Invoice Verification
             </h1>
             <span className="font-mono text-slate-500 text-xs font-medium px-2 py-0.5 bg-slate-100 rounded">
-              {invoice.id}
+              {getInvoiceDisplayNumber(invoice)}
             </span>
             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-sans uppercase tracking-wider ${
               invoice.status === 'PENDING_VERIFICATION' 
@@ -393,8 +394,8 @@ export default function InvoiceVerification({
                 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-2">
                   <div>
-                    <span className="text-slate-405 block text-[10px] font-medium font-sans">Invoice ID</span>
-                    <span className="font-mono font-bold text-slate-800 mt-1 block">{invoice.id}</span>
+                    <span className="text-slate-405 block text-[10px] font-medium font-sans">Invoice Number</span>
+                    <span className="font-mono font-bold text-slate-800 mt-1 block">{getInvoiceDisplayNumber(invoice)}</span>
                   </div>
 
                   <div>

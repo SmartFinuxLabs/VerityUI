@@ -19,6 +19,12 @@ import {
   Wallet
 } from 'lucide-react';
 import { Invoice, InvoiceStatus, MainRoute } from '../types';
+import type { SupplierAnalyticsState } from '../../lib/workspaceData';
+import { CashFlowProjectionChart } from './analytics/CashFlowProjectionChart';
+import { CreditTrajectorySparkline } from './analytics/CreditTrajectorySparkline';
+import { StatusBreakdownChart } from './analytics/StatusBreakdownChart';
+import { TimeTrendsChart } from './analytics/TimeTrendsChart';
+import { getInvoiceDisplayNumber } from '../../lib/invoiceDisplay';
 
 interface DashboardViewProps {
   workspacePerspective: 'Supplier' | 'Investor';
@@ -33,6 +39,8 @@ interface DashboardViewProps {
   onFocusInvoiceForFactoring: (invoiceId: string) => void;
   onFocusInvoiceForDispute: (invoiceId: string) => void;
   onFocusInvoiceForSettlement: (invoiceId: string) => void;
+  analytics: SupplierAnalyticsState;
+  analyticsStatus: 'loading' | 'ready' | 'error';
 }
 
 export default function DashboardView({
@@ -47,7 +55,9 @@ export default function DashboardView({
   searchQuery,
   onFocusInvoiceForFactoring,
   onFocusInvoiceForDispute,
-  onFocusInvoiceForSettlement
+  onFocusInvoiceForSettlement,
+  analytics,
+  analyticsStatus
 }: DashboardViewProps) {
   
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
@@ -61,6 +71,7 @@ export default function DashboardView({
   // Filter invoices based on global search in Header and local filter status
   const filteredInvoices = invoices.filter(invoice => {
     const matchesSearch = invoice.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (invoice.invoiceNumber ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           invoice.buyer.toLowerCase().includes(searchQuery.toLowerCase());
     
     if (filterStatus === 'ALL') return matchesSearch;
@@ -99,6 +110,12 @@ export default function DashboardView({
   const factoredVolume = invoices
     .filter((invoice) => invoice.status === 'FACTORED')
     .reduce((total, invoice) => total + (invoice.grossAmount || invoice.amount), 0);
+  const analyticsOutstandingVolume = analytics.financialHealth.totalOutstanding || totalOutstandingVolume;
+  const analyticsFactoredVolume = analytics.financialHealth.totalFactored || factoredVolume;
+  const liquidityRatio = analytics.financialHealth.liquidityRatio || (
+    analyticsOutstandingVolume > 0 ? analyticsFactoredVolume / analyticsOutstandingVolume : 0
+  );
+  const disputeRatio = analytics.financialHealth.disputeRatio || 0;
   const statusCounts = invoices.reduce<Record<InvoiceStatus, number>>(
     (counts, invoice) => ({
       ...counts,
@@ -331,6 +348,46 @@ export default function DashboardView({
         </div>
 
       </div>
+
+      {/* Analytics Overview */}
+      <section className="space-y-5" aria-label="Analytics Overview">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#0052CC] mb-1">Analytics Overview</p>
+            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">Financial health at a glance</h2>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className={`w-2 h-2 rounded-full ${analyticsStatus === 'ready' ? 'bg-emerald-500' : analyticsStatus === 'error' ? 'bg-red-500' : 'bg-amber-500 animate-pulse'}`} />
+            {analyticsStatus === 'ready' ? 'Live analytics' : analyticsStatus === 'error' ? 'Fallback analytics' : 'Loading analytics'}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white border border-slate-200 rounded-[8px] p-5 shadow-3xs">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Outstanding Receivables</p>
+            <p className="mt-2 text-2xl font-extrabold text-slate-900">{formatCurrency(analyticsOutstandingVolume)} <span className="text-xs text-slate-400 font-mono">USDC</span></p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-[8px] p-5 shadow-3xs">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Accelerated by Factoring</p>
+            <p className="mt-2 text-2xl font-extrabold text-slate-900">{formatCurrency(analyticsFactoredVolume)} <span className="text-xs text-slate-400 font-mono">USDC</span></p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-[8px] p-5 shadow-3xs">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Liquidity Ratio</p>
+            <p className="mt-2 text-2xl font-extrabold text-slate-900">{Math.round(liquidityRatio * 100)}%</p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-[8px] p-5 shadow-3xs">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Dispute Ratio</p>
+            <p className="mt-2 text-2xl font-extrabold text-slate-900">{Math.round(disputeRatio * 100)}%</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <StatusBreakdownChart data={analytics.volumeByStatus} />
+          <CashFlowProjectionChart data={analytics.cashFlowProjections} />
+          <TimeTrendsChart data={analytics.timeTrends} />
+          <CreditTrajectorySparkline data={analytics.creditHistory} />
+        </div>
+      </section>
 
       {/* SupplierDashboard analytics merged into VerityUI visual language */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -608,7 +665,7 @@ export default function DashboardView({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[#6B7280] text-[11px] font-bold tracking-wider uppercase">
-                <th className="px-6 py-4">Invoice ID</th>
+                <th className="px-6 py-4">Invoice Number</th>
                 <th className="px-6 py-4">Buyer Entity</th>
                 <th className="px-6 py-4">Amount</th>
                 <th className="px-6 py-4">Maturity Date</th>
@@ -627,9 +684,8 @@ export default function DashboardView({
                 filteredInvoices.map((invoice) => (
                   <tr key={invoice.id} className="hover:bg-slate-50/70 transition-colors group">
                     
-                    {/* Invoice ID in Mono to denote immutable authenticity */}
                     <td className="px-6 py-4 font-mono font-bold text-slate-950">
-                      {invoice.id}
+                      {getInvoiceDisplayNumber(invoice)}
                     </td>
 
                     {/* Buyer entity */}

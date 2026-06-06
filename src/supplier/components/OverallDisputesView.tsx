@@ -1,6 +1,7 @@
 import React from 'react';
 import { Building2, Timer, AlertOctagon, ChevronRight, Download, Plus } from 'lucide-react';
 import { Invoice, MainRoute } from '../types';
+import { getInvoiceDisplayNumber } from '../../lib/invoiceDisplay';
 
 interface OverallDisputesViewProps {
   invoices: Invoice[];
@@ -106,7 +107,7 @@ export default function OverallDisputesView({ invoices, onFocusInvoiceForDispute
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[11px] font-bold tracking-wider uppercase">
-                <th className="px-6 py-4">Invoice ID</th>
+                <th className="px-6 py-4">Invoice Number</th>
                 <th className="px-6 py-4">Buyer</th>
                 <th className="px-6 py-4">Dispute Reason</th>
                 <th className="px-6 py-4 text-right">Amount</th>
@@ -117,13 +118,13 @@ export default function OverallDisputesView({ invoices, onFocusInvoiceForDispute
               {disputedInvoices.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
-                    No active disputes found.
+                    No buyer disputes require action.
                   </td>
                 </tr>
               ) : (
                 disputedInvoices.map((dispute) => (
                   <tr key={dispute.id} className="hover:bg-slate-50/70 transition-colors group">
-                    <td className="px-6 py-4 font-mono font-bold text-[#0052CC]">{dispute.id}</td>
+                    <td className="px-6 py-4 font-mono font-bold text-[#0052CC]">{getInvoiceDisplayNumber(dispute)}</td>
                     <td className="px-6 py-4">
                       <span className="text-sm font-semibold text-slate-800">{dispute.buyer}</span>
                     </td>

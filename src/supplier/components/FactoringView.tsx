@@ -14,6 +14,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { Invoice, MainRoute } from '../types';
+import { getInvoiceDisplayNumber } from '../../lib/invoiceDisplay';
 
 interface FactoringViewProps {
   invoices: Invoice[];
@@ -46,8 +47,9 @@ export default function FactoringView({
     if (preselectedInvoiceId) {
       setSelectedIds([preselectedInvoiceId]);
     } else {
+      const defaultMockInvoiceNumbers = ['INV-2023-0891', 'INV-2023-0904', 'INV-2023-0912'];
       const defaultMockIds = eligible
-        .filter(inv => ['INV-2023-0891', 'INV-2023-0904', 'INV-2023-0912'].includes(inv.id))
+        .filter(inv => defaultMockInvoiceNumbers.includes(inv.invoiceNumber ?? inv.id))
         .map(inv => inv.id);
       setSelectedIds(defaultMockIds.length > 0 ? defaultMockIds : eligible.slice(0, 3).map(i => i.id));
     }
@@ -187,7 +189,7 @@ export default function FactoringView({
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 text-[10.5px] font-bold uppercase tracking-wider">
                   <th className="px-6 py-3.5 w-12 text-center">Select</th>
-                  <th className="px-6 py-3.5">Invoice ID</th>
+                  <th className="px-6 py-3.5">Invoice Number</th>
                   <th className="px-6 py-3.5">Buyer Entity</th>
                   <th className="px-6 py-3.5">Amount (USDC)</th>
                   <th className="px-6 py-3.5">Maturity</th>
@@ -204,6 +206,7 @@ export default function FactoringView({
                 ) : (
                   localInvoices.map((inv) => {
                     const isChecked = selectedIds.includes(inv.id);
+                    const displayNumber = getInvoiceDisplayNumber(inv);
                     return (
                       <tr 
                         key={inv.id} 
@@ -230,7 +233,7 @@ export default function FactoringView({
 
                         {/* ID */}
                         <td className="px-6 py-4 font-mono font-bold text-slate-950">
-                          {inv.id}
+                          {displayNumber}
                         </td>
 
                         {/* Buyer */}

@@ -2,7 +2,8 @@ import { Invoice } from './types';
 
 export const INITIAL_INVOICES: Invoice[] = [
   {
-    id: 'INV-001',
+    id: 'supplier-invoice-001',
+    invoiceNumber: 'INV-001',
     buyer: 'Acme Corp',
     amount: 50000,
     maturityDate: 'Jun 22, 2026',
@@ -15,7 +16,8 @@ export const INITIAL_INVOICES: Invoice[] = [
     }
   },
   {
-    id: 'INV-002',
+    id: 'supplier-invoice-002',
+    invoiceNumber: 'INV-002',
     buyer: 'Global Ltd',
     amount: 30000,
     maturityDate: 'Jul 01, 2026',
@@ -29,7 +31,8 @@ export const INITIAL_INVOICES: Invoice[] = [
     }
   },
   {
-    id: 'INV-003',
+    id: 'supplier-invoice-003',
+    invoiceNumber: 'INV-003',
     buyer: 'TechNova Inc',
     amount: 120000,
     maturityDate: 'May 30, 2026',
@@ -43,7 +46,8 @@ export const INITIAL_INVOICES: Invoice[] = [
     }
   },
   {
-    id: 'INV-004',
+    id: 'supplier-invoice-004',
+    invoiceNumber: 'INV-004',
     buyer: 'Retail Giant',
     amount: 15000,
     maturityDate: 'May 15, 2026',
@@ -59,7 +63,8 @@ export const INITIAL_INVOICES: Invoice[] = [
     }
   },
   {
-    id: 'INV-2026-089',
+    id: 'supplier-invoice-2026-089',
+    invoiceNumber: 'INV-2026-089',
     buyer: 'Global Manufacturing Corp',
     amount: 50000,
     maturityDate: 'Aug 14, 2026',
@@ -77,7 +82,8 @@ export const INITIAL_INVOICES: Invoice[] = [
     }
   },
   {
-    id: 'INV-2023-0891',
+    id: 'supplier-invoice-2023-0891',
+    invoiceNumber: 'INV-2023-0891',
     buyer: 'Acme Corp Logistics',
     amount: 125000,
     maturityDate: 'Oct 15, 2023',
@@ -90,7 +96,8 @@ export const INITIAL_INVOICES: Invoice[] = [
     }
   },
   {
-    id: 'INV-2023-0904',
+    id: 'supplier-invoice-2023-0904',
+    invoiceNumber: 'INV-2023-0904',
     buyer: 'Stark Industries',
     amount: 85500,
     maturityDate: 'Nov 02, 2023',
@@ -103,7 +110,8 @@ export const INITIAL_INVOICES: Invoice[] = [
     }
   },
   {
-    id: 'INV-2023-0912',
+    id: 'supplier-invoice-2023-0912',
+    invoiceNumber: 'INV-2023-0912',
     buyer: 'Wayne Enterprises',
     amount: 35000,
     maturityDate: 'Oct 30, 2023',
@@ -116,7 +124,8 @@ export const INITIAL_INVOICES: Invoice[] = [
     }
   },
   {
-    id: 'INV-2023-0915',
+    id: 'supplier-invoice-2023-0915',
+    invoiceNumber: 'INV-2023-0915',
     buyer: 'LexCorp',
     amount: 12400,
     maturityDate: 'Dec 15, 2023',

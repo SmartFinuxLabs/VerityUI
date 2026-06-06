@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { 
+import {
   Filter, 
   Download, 
   Calendar, 
@@ -21,6 +21,7 @@ import {
   Check
 } from 'lucide-react';
 import { Invoice, LiquidityProfile } from '../types';
+import { getInvoiceDisplayNumber } from '../../lib/invoiceDisplay';
 
 interface InvoiceListTabProps {
   invoices: Invoice[];
@@ -211,7 +212,7 @@ export default function InvoiceListTab({
               <thead>
                 <tr className="border-b border-[#E5E7EB] bg-slate-50/30 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
                   <th className="py-2.5 px-4 font-semibold">Supplier</th>
-                  <th className="py-2.5 px-4 font-semibold">Invoice ID</th>
+                  <th className="py-2.5 px-4 font-semibold">Invoice Number</th>
                   <th className="py-2.5 px-4 font-semibold text-right">Amount</th>
                   <th className="py-2.5 px-4 font-semibold">Maturity</th>
                   <th className="py-2.5 px-4 font-semibold text-center">Action</th>
@@ -220,6 +221,7 @@ export default function InvoiceListTab({
               <tbody className="divide-y divide-[#E5E7EB] text-xs">
                 {invoices.map((inv) => {
                   const isSelected = selectedReviewId === inv.id;
+                  const displayNumber = getInvoiceDisplayNumber(inv);
                   return (
                     <tr 
                       id={`verity-row-${inv.id}`}
@@ -243,7 +245,16 @@ export default function InvoiceListTab({
                         </div>
                       </td>
                       <td className="py-3 px-4 font-mono font-bold text-slate-600">
-                        {inv.id}
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onSelectInvoiceDetails(inv.id);
+                          }}
+                          className="text-[#0052cc] hover:underline"
+                        >
+                          {displayNumber}
+                        </button>
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
                         USD {inv.amount.toLocaleString()}
@@ -282,7 +293,7 @@ export default function InvoiceListTab({
                   Invoice Verification
                 </h3>
                 <span className="font-mono text-[10px] text-slate-400 font-bold block mt-0.5 uppercase tracking-wide">
-                  {currentInvoice.id}
+                  {getInvoiceDisplayNumber(currentInvoice)}
                 </span>
               </div>
               <button 

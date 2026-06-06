@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { 
+import {
   ArrowLeft, 
   Download, 
   ExternalLink, 
@@ -17,6 +17,7 @@ import {
   FileCheck2
 } from 'lucide-react';
 import { Invoice } from '../types';
+import { getInvoiceDisplayNumber } from '../../lib/invoiceDisplay';
 
 interface ReviewRebuttalProps {
   invoice: Invoice;
@@ -97,7 +98,7 @@ export default function ReviewRebuttal({
             </span>
           </div>
           <p className="font-mono text-slate-500 text-[11px] leading-none font-medium">
-            Invoice: <span className="font-bold text-slate-700">{invoice.id}</span>  •  Supplier: <span className="font-bold text-slate-700">{invoice.supplierName}</span>
+            Invoice: <span className="font-bold text-slate-700">{getInvoiceDisplayNumber(invoice)}</span>  •  Supplier: <span className="font-bold text-slate-700">{invoice.supplierName}</span>
           </p>
         </div>
 
@@ -263,8 +264,8 @@ export default function ReviewRebuttal({
 
             <div className="space-y-3.5 text-xs">
               <div>
-                <span className="text-slate-400 text-[9px] uppercase font-bold tracking-wider font-mono block">Invoice ID</span>
-                <span className="font-mono font-bold text-slate-800 text-sm mt-0.5 block">{invoice.id}</span>
+                <span className="text-slate-400 text-[9px] uppercase font-bold tracking-wider font-mono block">Invoice Number</span>
+                <span className="font-mono font-bold text-slate-800 text-sm mt-0.5 block">{getInvoiceDisplayNumber(invoice)}</span>
               </div>
 
               <div>

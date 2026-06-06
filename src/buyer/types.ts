@@ -35,6 +35,7 @@ export interface RebuttalInfo {
 
 export interface Invoice {
   id: string;
+  invoiceNumber?: string;
   supplierName: string;
   supplierId: string; // e.g. "tg_0492"
   walletAddress: string; // e.g. "0x8a...4f2b"
@@ -44,6 +45,7 @@ export interface Invoice {
   currency: string; // USDC
   issueDate: string;
   maturityDate: string;
+  dueDate?: string;
   status: 'PENDING_VERIFICATION' | 'VERIFIED' | 'CONTESTED' | 'SETTLED' | 'FACTORED';
   poNumber: string;
   goodsReceiptNumber: string;

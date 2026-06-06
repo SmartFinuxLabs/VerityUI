@@ -1,5 +1,5 @@
 import { act } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import FactoringView from '../../../src/supplier/components/FactoringView';
@@ -8,6 +8,7 @@ import type { Invoice } from '../../../src/supplier/types';
 const invoices: Invoice[] = [
   {
     id: 'INV-001',
+    invoiceNumber: 'INV-SUP-001',
     buyer: 'Acme Buyer',
     amount: 100,
     maturityDate: '2026-06-10',
@@ -96,5 +97,21 @@ describe('supplier FactoringView component functions', () => {
 
     expect(screen.getByRole('button', { name: /Submit to Marketplace/i })).toBeDisabled();
     expect(screen.getByText('0 Invoices selected')).toBeInTheDocument();
+  });
+
+  it('uses invoice numbers in the eligible invoice table', () => {
+    render(
+      <FactoringView
+        invoices={invoices}
+        onSelectRoute={vi.fn()}
+        onSubmitFactoringBatch={vi.fn()}
+        preselectedInvoiceId={null}
+      />
+    );
+
+    const table = screen.getByRole('table');
+    expect(within(table).getByRole('columnheader', { name: /Invoice Number/i })).toBeInTheDocument();
+    expect(within(table).getByText('INV-SUP-001')).toBeInTheDocument();
+    expect(within(table).queryByText(/Invoice ID/i)).not.toBeInTheDocument();
   });
 });

@@ -32,7 +32,11 @@ export interface SupplierAnalyticsState {
   financialHealth: {
     disputeRatio: number;
     onChainCreditScore: number;
+    totalOutstanding: number;
+    totalFactored: number;
+    liquidityRatio: number;
   };
+  creditHistory: { period: string; score: number }[];
 }
 
 export interface InvestorWorkspaceState {
@@ -82,7 +86,7 @@ export function getSupplierDemoWorkspaceState(): SupplierWorkspaceState {
   const buyerInvoices = readJsonStorage<BuyerInvoice[]>('sfl_invoices', BUYER_INVOICES);
   
   const syncedSupplierInvoices = SUPPLIER_INVOICES.map(inv => {
-    const matchingBuyer = buyerInvoices.find(b => b.id === inv.id);
+    const matchingBuyer = buyerInvoices.find(b => b.id === inv.id || b.invoiceNumber === inv.invoiceNumber);
     if (matchingBuyer && matchingBuyer.status === 'CONTESTED') {
       return { ...inv, status: 'DISPUTED' as const };
     }
@@ -127,7 +131,16 @@ export function getSupplierDemoAnalyticsState(): SupplierAnalyticsState {
     financialHealth: {
       disputeRatio: 0.05,
       onChainCreditScore: 820,
+      totalOutstanding: 160000,
+      totalFactored: 50000,
+      liquidityRatio: 0.31,
     },
+    creditHistory: [
+      { period: '2026-02', score: 775 },
+      { period: '2026-03', score: 790 },
+      { period: '2026-04', score: 805 },
+      { period: '2026-05', score: 820 },
+    ],
   };
 }
 
@@ -184,7 +197,11 @@ export function getSupplierAnalyticsInitialState(): SupplierAnalyticsState {
         financialHealth: {
           disputeRatio: 0,
           onChainCreditScore: 0,
+          totalOutstanding: 0,
+          totalFactored: 0,
+          liquidityRatio: 0,
         },
+        creditHistory: [],
       };
 }
 
@@ -201,6 +218,31 @@ export function getInvestorWorkspaceInitialState() {
         projectedYield: 0,
         ytdEarned: 0,
       };
+}
+
+function normalizeSupplierApiInvoice(invoice: SupplierInvoice): SupplierInvoice {
+  const rawInvoice = invoice as SupplierInvoice & {
+    invoice_number?: string;
+    issue_date?: string;
+    due_date?: string;
+    metadata?: {
+      invoiceNumber?: string;
+      invoice_number?: string;
+    };
+  };
+  const invoiceNumber =
+    rawInvoice.invoiceNumber ??
+    rawInvoice.invoice_number ??
+    rawInvoice.metadata?.invoiceNumber ??
+    rawInvoice.metadata?.invoice_number;
+
+  return {
+    ...invoice,
+    invoiceNumber,
+    issueDate: rawInvoice.issueDate ?? rawInvoice.issue_date,
+    dueDate: rawInvoice.dueDate ?? rawInvoice.due_date,
+    maturityDate: rawInvoice.maturityDate ?? rawInvoice.due_date ?? rawInvoice.dueDate,
+  };
 }
 
 export async function loadBuyerWorkspaceState(
@@ -235,7 +277,7 @@ export async function loadSupplierWorkspaceState(
   const { data } = await verityApi.getSupplierWorkspaceState(requireApiToken(snapshot));
   return {
     supplierOrganizationId: data?.supplierOrganizationId ?? null,
-    invoices: data?.invoices ?? [],
+    invoices: (data?.invoices ?? []).map(normalizeSupplierApiInvoice),
     registeredBuyers: data?.registeredBuyers ?? [],
     availableLiquidity: data?.availableLiquidity ?? 0,
     escrowValue: data?.escrowValue ?? 0,
@@ -257,7 +299,14 @@ export async function loadSupplierAnalytics(
     volumeByStatus: data?.volumeByStatus ?? [],
     timeTrends: data?.timeTrends ?? [],
     cashFlowProjections: data?.cashFlowProjections ?? [],
-    financialHealth: data?.financialHealth ?? { disputeRatio: 0, onChainCreditScore: 0 },
+    financialHealth: {
+      disputeRatio: data?.financialHealth?.disputeRatio ?? 0,
+      onChainCreditScore: data?.financialHealth?.onChainCreditScore ?? 0,
+      totalOutstanding: data?.financialHealth?.totalOutstanding ?? 0,
+      totalFactored: data?.financialHealth?.totalFactored ?? 0,
+      liquidityRatio: data?.financialHealth?.liquidityRatio ?? 0,
+    },
+    creditHistory: data?.creditHistory ?? [],
   };
 }
 

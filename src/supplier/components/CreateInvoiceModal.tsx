@@ -67,7 +67,8 @@ export default function CreateInvoiceModal({ onClose, onSubmitInvoice, buyerOpti
     if (!selectedBuyer) return null;
 
     return {
-      id: invoiceId,
+      id: `supplier-invoice-${Date.now()}`,
+      invoiceNumber: invoiceId,
       buyerId: selectedBuyer.buyerId,
       buyer: selectedBuyer.buyerName,
       amount: parseFloat(amountStr) || 25000,
@@ -242,9 +243,9 @@ export default function CreateInvoiceModal({ onClose, onSubmitInvoice, buyerOpti
                   MANUAL DETAILS
                 </label>
 
-                {/* Invoice ID */}
+                {/* Invoice Number */}
                 <div className="space-y-1">
-                  <span className="block text-[11.5px] font-bold text-slate-600">Invoice ID</span>
+                  <span className="block text-[11.5px] font-bold text-slate-600">Invoice Number</span>
                   <input
                     type="text"
                     value={invoiceId}

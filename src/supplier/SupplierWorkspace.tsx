@@ -1,7 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Invoice, MainRoute, InvoiceStatus, RegisteredBuyerOption } from './types';
 import { getParticipantAccessSnapshot } from '../lib/participantAuth';
-import { getSupplierWorkspaceInitialState, isDemoWorkspaceDataMode, loadSupplierWorkspaceState } from '../lib/workspaceData';
+import {
+  getSupplierAnalyticsInitialState,
+  getSupplierWorkspaceInitialState,
+  isDemoWorkspaceDataMode,
+  loadSupplierAnalytics,
+  loadSupplierWorkspaceState,
+  type SupplierAnalyticsState,
+} from '../lib/workspaceData';
 import { verityApi } from '../lib/apiClient';
 import { INITIAL_INVOICES } from './data';
 import Sidebar from './components/Sidebar';
@@ -14,6 +21,7 @@ import DisputeView from './components/DisputeView';
 import SettlementView from './components/SettlementView';
 import OverallDisputesView from './components/OverallDisputesView';
 import CreateInvoiceFullView from './components/create-invoice-wizard/CreateInvoiceFullView';
+import ReadOnlyInvoiceDetails from './components/ReadOnlyInvoiceDetails';
 
 interface SupplierWorkspaceProps {
   initialRoute?: MainRoute;
@@ -31,6 +39,7 @@ export default function SupplierWorkspace({
   onResetAccess,
 }: SupplierWorkspaceProps) {
   const initialWorkspaceState = getSupplierWorkspaceInitialState();
+  const initialAnalyticsState = getSupplierAnalyticsInitialState();
   const [currentRoute, setCurrentRoute] = useState<MainRoute>(initialRoute);
   const [supplierOrganizationId, setSupplierOrganizationId] = useState<string | null>(
     initialWorkspaceState.supplierOrganizationId
@@ -45,11 +54,16 @@ export default function SupplierWorkspace({
   const [walletAddress, setWalletAddress] = useState<string | null>(initialWorkspaceState.walletAddress);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [preselectedInvoiceId, setPreselectedInvoiceId] = useState<string | null>(null);
+  const [readOnlyInvoiceId, setReadOnlyInvoiceId] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
   const [workspaceDataStatus, setWorkspaceDataStatus] = useState<'loading' | 'ready' | 'error'>(
     isDemoWorkspaceDataMode() ? 'ready' : 'loading'
   );
   const [workspaceDataError, setWorkspaceDataError] = useState('');
+  const [analytics, setAnalytics] = useState<SupplierAnalyticsState>(initialAnalyticsState);
+  const [analyticsStatus, setAnalyticsStatus] = useState<'loading' | 'ready' | 'error'>(
+    isDemoWorkspaceDataMode() ? 'ready' : 'loading'
+  );
 
   const handleRouteChange = async (route: MainRoute) => {
     if (route === 'invoice-queue' || route === 'dashboard') {
@@ -57,13 +71,14 @@ export default function SupplierWorkspace({
     }
     setCurrentRoute(route);
     setPreselectedInvoiceId(null); // Clear focus when navigating from sidebar/header
+    setReadOnlyInvoiceId(null);
   };
 
   useEffect(() => {
     let isMounted = true;
 
-    loadSupplierWorkspaceState()
-      .then((state) => {
+    Promise.all([loadSupplierWorkspaceState(), loadSupplierAnalytics()])
+      .then(([state, analyticsState]) => {
         if (!isMounted) return;
         supplierOrganizationIdRef.current = state.supplierOrganizationId;
         setSupplierOrganizationId(state.supplierOrganizationId);
@@ -74,12 +89,15 @@ export default function SupplierWorkspace({
         setOnChainCredit(state.onChainCredit);
         setWalletConnected(state.walletConnected);
         setWalletAddress(state.walletAddress);
+        setAnalytics(analyticsState);
         setWorkspaceDataStatus('ready');
+        setAnalyticsStatus('ready');
         setWorkspaceDataError('');
       })
       .catch((error) => {
         if (!isMounted) return;
         setWorkspaceDataStatus('error');
+        setAnalyticsStatus('error');
         setWorkspaceDataError(error instanceof Error ? error.message : 'Unable to load supplier workspace data from VerityAPI.');
       });
 
@@ -99,7 +117,10 @@ export default function SupplierWorkspace({
   };
 
   const refreshSupplierWorkspace = async () => {
-    const refreshedState = await loadSupplierWorkspaceState();
+    const [refreshedState, refreshedAnalytics] = await Promise.all([
+      loadSupplierWorkspaceState(),
+      loadSupplierAnalytics(),
+    ]);
     supplierOrganizationIdRef.current = refreshedState.supplierOrganizationId;
     setSupplierOrganizationId(refreshedState.supplierOrganizationId);
     setInvoices(refreshedState.invoices);
@@ -109,6 +130,8 @@ export default function SupplierWorkspace({
     setOnChainCredit(refreshedState.onChainCredit);
     setWalletConnected(refreshedState.walletConnected);
     setWalletAddress(refreshedState.walletAddress);
+    setAnalytics(refreshedAnalytics);
+    setAnalyticsStatus('ready');
   };
 
   const toApiDate = (value: string, fallback: Date) => {
@@ -151,26 +174,28 @@ export default function SupplierWorkspace({
       }
 
       const now = new Date();
-      const dueDate = toApiDate(newInvoice.maturityDate, new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000));
+      const invoiceNumber = newInvoice.invoiceNumber ?? newInvoice.id;
+      const issueDate = toApiDate(newInvoice.issueDate ?? '', now);
+      const dueDate = toApiDate(newInvoice.dueDate ?? newInvoice.maturityDate, new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000));
 
       await verityApi.createInvoice(snapshot.accessToken, {
         supplierId: activeSupplierOrganizationId,
         buyerId: newInvoice.buyerId,
-        invoiceNumber: newInvoice.id,
-        issueDate: now.toISOString().slice(0, 10),
+        invoiceNumber,
+        issueDate,
         dueDate,
         currency: 'USDC',
         grossAmount: newInvoice.amount,
         acceptedAmount: newInvoice.amount,
-        sourceSystemReference: `VERITYUI-${newInvoice.id}`,
+        sourceSystemReference: `VERITYUI-${invoiceNumber}`,
         metadata: {
           buyerName: newInvoice.buyer,
           supplierId: activeSupplierOrganizationId,
           itemDescription: newInvoice.itemDescription,
           originalQty: newInvoice.originalQty,
           unitPrice: newInvoice.unitPrice,
-          poNumber: `PO-${newInvoice.id}`,
-          goodsReceiptNumber: `GR-${newInvoice.id}`,
+          poNumber: newInvoice.poNumber ?? `PO-${invoiceNumber}`,
+          goodsReceiptNumber: newInvoice.goodsReceiptNumber ?? `GR-${invoiceNumber}`,
           walletAddress,
           lineItems: newInvoice.lineItems ? newInvoice.lineItems.map(item => ({
             description: item.description,
@@ -308,14 +333,16 @@ export default function SupplierWorkspace({
     setCurrentRoute('settlement');
   };
 
+  const getReadOnlyInvoice = () => invoices.find((invoice) => invoice.id === readOnlyInvoiceId) ?? null;
+
   const getDisputeInvoice = () => {
     const matched = invoices.find((inv) => inv.id === preselectedInvoiceId || inv.status === 'DISPUTED');
-    return matched || invoices.find((inv) => inv.id === 'INV-2026-089') || invoices[4] || INITIAL_INVOICES.find(inv => inv.status === 'DISPUTED');
+    return matched || invoices.find((inv) => inv.invoiceNumber === 'INV-2026-089') || invoices[4] || INITIAL_INVOICES.find(inv => inv.status === 'DISPUTED');
   };
 
   const getSettlementInvoice = () => {
     const matched = invoices.find((inv) => inv.id === preselectedInvoiceId || inv.status === 'FACTORED');
-    return matched || invoices.find((inv) => inv.id === 'INV-2026-089') || invoices[4] || INITIAL_INVOICES.find(inv => inv.status === 'FACTORED');
+    return matched || invoices.find((inv) => inv.invoiceNumber === 'INV-2026-089') || invoices[4] || INITIAL_INVOICES.find(inv => inv.status === 'FACTORED');
   };
 
   const EmptyActionState = ({
@@ -411,6 +438,8 @@ export default function SupplierWorkspace({
             onFocusInvoiceForFactoring={handleFocusInvoiceForFactoring}
             onFocusInvoiceForDispute={handleFocusInvoiceForDispute}
             onFocusInvoiceForSettlement={handleFocusInvoiceForSettlement}
+            analytics={analytics}
+            analyticsStatus={analyticsStatus}
           />
         )}
 
@@ -423,6 +452,7 @@ export default function SupplierWorkspace({
             onFocusInvoiceForFactoring={handleFocusInvoiceForFactoring}
             onFocusInvoiceForDispute={handleFocusInvoiceForDispute}
             onFocusInvoiceForSettlement={handleFocusInvoiceForSettlement}
+            onOpenReadOnlyInvoiceDetails={setReadOnlyInvoiceId}
           />
         )}
 
@@ -482,13 +512,20 @@ export default function SupplierWorkspace({
             onSubmitFullInvoice={(data) => {
               const totalAmount = data?.items?.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0) || 50000;
               const firstItemDesc = data?.items?.[0]?.description || 'Multiple Items';
+              const now = new Date();
+              const fallbackInvoiceNumber = `INV-${now.getFullYear()}-${Math.floor(Math.random() * 1000)}`;
+              const invoiceNumber = data?.invoiceNumber || fallbackInvoiceNumber;
+              const dueDate = data?.dueDate || new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
               handleAddInvoice({
-                id: `INV-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000)}`,
+                id: `supplier-invoice-${now.getTime()}`,
+                invoiceNumber,
                 buyerId: data?.customer?.id || 'GLOBAL_CORP',
                 buyer: data?.customer?.name || 'Global Corp',
                 amount: totalAmount,
                 itemDescription: firstItemDesc,
-                maturityDate: new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                issueDate: data?.issueDate || now.toISOString().slice(0, 10),
+                dueDate,
+                maturityDate: dueDate,
                 lineItems: data?.items,
               });
             }}
@@ -502,6 +539,10 @@ export default function SupplierWorkspace({
           onSubmitInvoice={handleAddInvoice}
           buyerOptions={registeredBuyers}
         />
+      )}
+
+      {getReadOnlyInvoice() && (
+        <ReadOnlyInvoiceDetails invoice={getReadOnlyInvoice() as Invoice} onClose={() => setReadOnlyInvoiceId(null)} />
       )}
     </div>
   );

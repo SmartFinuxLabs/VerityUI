@@ -13,6 +13,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Invoice, InvoiceStatus, MainRoute } from '../types';
+import { getInvoiceDisplayNumber } from '../../lib/invoiceDisplay';
 
 interface InvoiceQueueViewProps {
   invoices: Invoice[];
@@ -21,6 +22,7 @@ interface InvoiceQueueViewProps {
   onFocusInvoiceForFactoring: (invoiceId: string) => void;
   onFocusInvoiceForDispute: (invoiceId: string) => void;
   onFocusInvoiceForSettlement: (invoiceId: string) => void;
+  onOpenReadOnlyInvoiceDetails: (invoiceId: string) => void;
   onSelectRoute: (route: MainRoute) => void;
 }
 
@@ -62,6 +64,7 @@ export default function InvoiceQueueView({
   onFocusInvoiceForFactoring,
   onFocusInvoiceForDispute,
   onFocusInvoiceForSettlement,
+  onOpenReadOnlyInvoiceDetails,
   onSelectRoute,
 }: InvoiceQueueViewProps) {
   const [localQuery, setLocalQuery] = useState('');
@@ -74,6 +77,7 @@ export default function InvoiceQueueView({
       const matchesStatus = statusFilter === 'ALL' || invoice.status === statusFilter;
       const searchable = [
         invoice.id,
+        invoice.invoiceNumber,
         invoice.buyer,
         invoice.buyerId,
         invoice.itemDescription,
@@ -277,7 +281,7 @@ export default function InvoiceQueueView({
             <table className="w-full min-w-[980px] text-left">
               <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-400">
                 <tr>
-                  <th className="px-4 py-3">Invoice ID</th>
+                  <th className="px-4 py-3">Invoice Number</th>
                   <th className="px-4 py-3">Buyer Entity</th>
                   <th className="px-4 py-3">Amount</th>
                   <th className="px-4 py-3">Maturity Date</th>
@@ -288,11 +292,18 @@ export default function InvoiceQueueView({
               <tbody className="divide-y divide-slate-100">
                 {filteredInvoices.map((invoice) => {
                   const StatusIcon = statusIcons[invoice.status];
+                  const displayNumber = getInvoiceDisplayNumber(invoice);
 
                   return (
                     <tr key={invoice.id} className="transition-colors hover:bg-slate-50/70">
                       <td className="px-4 py-4 align-top">
-                        <p className="text-sm font-extrabold text-slate-950">{invoice.id}</p>
+                        <button
+                          type="button"
+                          onClick={() => onOpenReadOnlyInvoiceDetails(invoice.id)}
+                          className="text-left font-mono text-sm font-extrabold text-[#0052CC] hover:underline"
+                        >
+                          {displayNumber}
+                        </button>
                         <p className="mt-1 max-w-[220px] truncate text-xs text-slate-500">
                           {invoice.itemDescription ?? 'Supplier receivable'}
                         </p>

@@ -4,13 +4,58 @@ import { StepperSimple } from '../components/Steppers';
 import { RegisteredBuyerOption } from '../../../types';
 import { useState } from 'react';
 
-export function Step1Setup({ onNext, buyerOptions, selectedBuyerId, onChangeBuyerId }: { onNext: () => void, buyerOptions: RegisteredBuyerOption[], selectedBuyerId: string | null, onChangeBuyerId: (id: string) => void }) {
+interface Step1SetupProps {
+  onNext: () => void;
+  buyerOptions: RegisteredBuyerOption[];
+  selectedBuyerId: string | null;
+  onChangeBuyerId: (id: string) => void;
+  invoiceNumber: string;
+  issueDate: string;
+  dueDate: string;
+  onChangeInvoiceNumber: (value: string) => void;
+  onChangeIssueDate: (value: string) => void;
+  onChangeDueDate: (value: string) => void;
+}
+
+export function Step1Setup({
+  onNext,
+  buyerOptions,
+  selectedBuyerId,
+  onChangeBuyerId,
+  invoiceNumber,
+  issueDate,
+  dueDate,
+  onChangeInvoiceNumber,
+  onChangeIssueDate,
+  onChangeDueDate,
+}: Step1SetupProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const filteredBuyers = buyerOptions.filter(b => 
     b.buyerName.toLowerCase().includes(searchQuery.toLowerCase()) || 
     b.buyerId.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleNext = () => {
+    if (!invoiceNumber.trim()) {
+      setErrorMessage('Invoice number is required.');
+      return;
+    }
+
+    if (!issueDate || !dueDate) {
+      setErrorMessage('Issue date and due date are required.');
+      return;
+    }
+
+    if (Date.parse(dueDate) <= Date.parse(issueDate)) {
+      setErrorMessage('Due date must be after issue date.');
+      return;
+    }
+
+    setErrorMessage('');
+    onNext();
+  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -22,6 +67,44 @@ export function Step1Setup({ onNext, buyerOptions, selectedBuyerId, onChangeBuye
           <h1 className="text-2xl font-bold tracking-tight mb-4 md:hidden">Create Invoice</h1>
           
           <StepperSimple currentStep={1} />
+
+          <section className="mb-6 bg-surface-container-lowest border border-border-muted rounded-lg p-6 shadow-[0px_4px_12px_rgba(0,0,0,0.03)]">
+            <h2 className="text-xl font-semibold mb-4">Invoice Metadata</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <label className="block">
+                <span className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">Invoice Number</span>
+                <input
+                  type="text"
+                  value={invoiceNumber}
+                  onChange={(event) => onChangeInvoiceNumber(event.target.value)}
+                  className="w-full px-3 py-2 border border-outline-variant rounded-md bg-surface-bright focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-shadow text-sm font-mono"
+                />
+              </label>
+              <label className="block">
+                <span className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">Issue Date</span>
+                <input
+                  type="date"
+                  value={issueDate}
+                  onChange={(event) => onChangeIssueDate(event.target.value)}
+                  className="w-full px-3 py-2 border border-outline-variant rounded-md bg-surface-bright focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-shadow text-sm"
+                />
+              </label>
+              <label className="block">
+                <span className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">Due Date</span>
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(event) => onChangeDueDate(event.target.value)}
+                  className="w-full px-3 py-2 border border-outline-variant rounded-md bg-surface-bright focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-shadow text-sm"
+                />
+              </label>
+            </div>
+            {errorMessage && (
+              <p className="mt-3 text-sm font-semibold text-status-failed" role="alert">
+                {errorMessage}
+              </p>
+            )}
+          </section>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Search Directory */}
@@ -121,11 +204,11 @@ export function Step1Setup({ onNext, buyerOptions, selectedBuyerId, onChangeBuye
               Cancel
             </button>
               <button 
-                onClick={onNext}
+                onClick={handleNext}
                 disabled={!selectedBuyerId}
                 className={`flex items-center gap-2 font-bold py-3 px-8 rounded-md transition-colors ${selectedBuyerId ? 'bg-primary hover:bg-on-primary-fixed-variant text-on-primary shadow-sm' : 'bg-surface-container-highest text-on-surface-variant cursor-not-allowed'}`}
               >
-                Next: Line Itemsp
+                Next: Line Items
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
