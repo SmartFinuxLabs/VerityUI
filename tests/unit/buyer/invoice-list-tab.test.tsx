@@ -92,6 +92,31 @@ describe('buyer InvoiceListTab component functions', () => {
     expect(onSelectInvoiceDetails).toHaveBeenCalledWith('INV-2026-089');
   });
 
+  it('shows supplier names without supplier ids and renders canonical colored status badges', () => {
+    render(
+      <InvoiceListTab
+        invoices={invoices}
+        liquidity={liquidity}
+        onSelectInvoiceDetails={vi.fn()}
+        onApproveInvoice={vi.fn()}
+        onRejectOrDispute={vi.fn()}
+      />
+    );
+
+    const table = screen.getByRole('table');
+
+    expect(within(table).getByText('Northstar Components')).toBeInTheDocument();
+    expect(within(table).getByText('Verified Supplier')).toBeInTheDocument();
+    expect(within(table).queryByText(/SUP-100|SUP-200|ID:/i)).not.toBeInTheDocument();
+    expect(within(table).getByRole('columnheader', { name: /Status/i })).toBeInTheDocument();
+
+    const pendingBadge = within(table).getByText('PENDING');
+    const acceptedBadge = within(table).getByText('ACCEPTED');
+
+    expect(pendingBadge).toHaveClass('bg-amber-100');
+    expect(acceptedBadge).toHaveClass('bg-emerald-100');
+  });
+
   it('requires both quick verification checks before accepting and signing', async () => {
     vi.useFakeTimers();
     const onApproveInvoice = vi.fn();

@@ -2,7 +2,18 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import BuyerWorkspace from '../../../src/buyer/BuyerWorkspace';
-import { storeApiSession } from '../../../src/lib/participantAuth';
+
+async function importBuyerApiWorkspace() {
+  vi.stubEnv('VITE_RUN_MODE', 'api');
+  vi.resetModules();
+
+  const [{ default: ApiBuyerWorkspace }, participantAuth] = await Promise.all([
+    import('../../../src/buyer/BuyerWorkspace'),
+    import('../../../src/lib/participantAuth'),
+  ]);
+
+  return { ApiBuyerWorkspace, storeApiSession: participantAuth.storeApiSession };
+}
 
 describe('BuyerWorkspace module', () => {
   it('renders buyer-specific header, sidebar action, and dashboard content', () => {
@@ -11,6 +22,11 @@ describe('BuyerWorkspace module', () => {
     expect(screen.getAllByText(/Buyer Dashboard/i).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /New Funding Request/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Search invoices, suppliers, or hashes/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Factoring Exposure/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Settlement Progress/i)).toBeInTheDocument();
+    expect(screen.getByText(/Supplier Concentration/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/FACTORED/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/tg_0492/i)).not.toBeInTheDocument();
   });
 
   it('navigates from buyer dashboard to invoice queue', async () => {
@@ -25,6 +41,7 @@ describe('BuyerWorkspace module', () => {
 
   it('renders an empty invoice queue from VerityAPI without a blank screen', async () => {
     const user = userEvent.setup();
+    const { ApiBuyerWorkspace, storeApiSession } = await importBuyerApiWorkspace();
     storeApiSession({
       user: { id: 'buyer-user-1', email: 'buyer@test.local', userMetadata: { participantRole: 'Buyer' } },
       accessToken: 'buyer-token',
@@ -49,7 +66,7 @@ describe('BuyerWorkspace module', () => {
       })
     );
 
-    render(<BuyerWorkspace accessRole="Buyer" />);
+    render(<ApiBuyerWorkspace accessRole="Buyer" />);
 
     await user.click(await screen.findByRole('button', { name: /Invoices Queue/i }));
 
@@ -59,6 +76,7 @@ describe('BuyerWorkspace module', () => {
 
   it('persists normal buyer Accept and Sign approvals and reloads the verified invoice status from VerityAPI', async () => {
     const user = userEvent.setup();
+    const { ApiBuyerWorkspace, storeApiSession } = await importBuyerApiWorkspace();
     storeApiSession({
       user: { id: 'buyer-user-1', email: 'buyer@test.local', userMetadata: { participantRole: 'Buyer' } },
       accessToken: 'buyer-token',
@@ -123,7 +141,7 @@ describe('BuyerWorkspace module', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<BuyerWorkspace accessRole="Buyer" />);
+    render(<ApiBuyerWorkspace accessRole="Buyer" />);
 
     await user.click(await screen.findByRole('button', { name: /Invoices Queue/i }));
     await user.click(await screen.findByRole('button', { name: /Review/i }));
@@ -163,6 +181,7 @@ describe('BuyerWorkspace module', () => {
 
   it('persists accepted supplier rebuttals as immediate buyer approvals and reloads the verified status from VerityAPI', async () => {
     const user = userEvent.setup();
+    const { ApiBuyerWorkspace, storeApiSession } = await importBuyerApiWorkspace();
     storeApiSession({
       user: { id: 'buyer-user-1', email: 'buyer@test.local', userMetadata: { participantRole: 'Buyer' } },
       accessToken: 'buyer-token',
@@ -241,7 +260,7 @@ describe('BuyerWorkspace module', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<BuyerWorkspace accessRole="Buyer" />);
+    render(<ApiBuyerWorkspace accessRole="Buyer" />);
 
     await user.click(await screen.findByRole('button', { name: /Invoices Queue/i }));
     await user.click(await screen.findByRole('button', { name: /Review/i }));

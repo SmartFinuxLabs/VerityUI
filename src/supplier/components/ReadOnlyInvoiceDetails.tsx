@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { getInvoiceDisplayNumber, formatInvoiceDate } from '../../lib/invoiceDisplay';
+import { getFundingStatusDisplay } from '../../lib/fundingStatusDisplay';
 import type { Invoice } from '../types';
 
 interface ReadOnlyInvoiceDetailsProps {
@@ -17,6 +18,7 @@ const formatCurrency = (amount: number) =>
 export default function ReadOnlyInvoiceDetails({ invoice, onClose }: ReadOnlyInvoiceDetailsProps) {
   const displayNumber = getInvoiceDisplayNumber(invoice);
   const lineItems = invoice.lineItems ?? [];
+  const fundingStatusDisplay = getFundingStatusDisplay(invoice.fundingStatus);
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-4">
@@ -87,6 +89,31 @@ export default function ReadOnlyInvoiceDetails({ invoice, onClose }: ReadOnlyInv
               <p className="mt-1 font-mono text-sm font-bold text-slate-800">
                 {invoice.goodsReceiptNumber ?? 'Not provided'}
               </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 border-t border-slate-100 pt-5 md:grid-cols-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Funding Status</p>
+              <span
+                className={`mt-1 inline-flex rounded-[6px] border px-2.5 py-1 text-[11px] font-bold ${fundingStatusDisplay.className}`}
+              >
+                {fundingStatusDisplay.label}
+              </span>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Funding Offer</p>
+              <p className="mt-1 font-mono text-sm font-bold text-slate-800">{invoice.fundingOfferId ?? 'Not listed'}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Offered Amount</p>
+              <p className="mt-1 font-mono text-sm font-bold text-slate-800">
+                {invoice.offeredAmount ? formatCurrency(invoice.offeredAmount) : 'Not listed'}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Submitted</p>
+              <p className="mt-1 text-sm font-bold text-slate-800">{formatInvoiceDate(invoice.marketplaceSubmittedAt)}</p>
             </div>
           </div>
 

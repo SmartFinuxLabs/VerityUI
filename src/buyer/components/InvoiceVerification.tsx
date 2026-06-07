@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Invoice, LiquidityProfile } from '../types';
 import { getInvoiceDisplayNumber } from '../../lib/invoiceDisplay';
+import { getSupplierDisplayName } from '../../lib/supplierDisplay';
 
 interface InvoiceVerificationProps {
   invoice: Invoice;
@@ -48,6 +49,7 @@ export default function InvoiceVerification({
     name: 'receiving_report_v2.pdf',
     size: '2.4 MB'
   });
+  const supplierDisplayName = getSupplierDisplayName(invoice);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -122,7 +124,7 @@ export default function InvoiceVerification({
             </div>
             <div>
               <span className="font-sans font-bold text-slate-950 text-sm leading-none block">
-                {invoice.supplierName}
+                {supplierDisplayName}
               </span>
               <span className="font-mono text-[10px] text-slate-400 font-medium mt-1 block">
                 ID: {invoice.walletAddress}
@@ -400,7 +402,7 @@ export default function InvoiceVerification({
 
                   <div>
                     <span className="text-slate-405 block text-[10px] font-medium font-sans">Supplier</span>
-                    <span className="font-sans font-bold text-slate-800 mt-1 block">{invoice.supplierName}</span>
+                    <span className="font-sans font-bold text-slate-800 mt-1 block">{supplierDisplayName}</span>
                   </div>
 
                   <div>

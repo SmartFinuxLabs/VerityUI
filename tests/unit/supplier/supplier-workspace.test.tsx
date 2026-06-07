@@ -159,7 +159,7 @@ describe('SupplierWorkspace module', () => {
               buyer: 'Northstar Buyer LLC',
               amount: 42000,
               maturityDate: '2026-07-05',
-              status: 'ACCEPTED',
+              status: 'FACTORING_REQUESTED',
             },
           ],
           registeredBuyers: [],
@@ -175,6 +175,57 @@ describe('SupplierWorkspace module', () => {
     expect(within(table).getByRole('columnheader', { name: /Invoice Number/i })).toBeInTheDocument();
     expect(within(table).getByRole('button', { name: 'INV-API-SUP-900' })).toBeInTheDocument();
     expect(within(table).queryByText(/uuid-api-invoice-1/i)).not.toBeInTheDocument();
+  });
+
+  it('displays persisted marketplace funding status in supplier invoice queue and read-only details', async () => {
+    const user = userEvent.setup();
+    const { ApiSupplierWorkspace, storeApiSession: apiStoreApiSession } = await importSupplierApiWorkspace();
+    storeSupplierApiSession(apiStoreApiSession);
+    vi.stubGlobal(
+      'fetch',
+      mockFetchJson(200, {
+        data: supplierWorkspaceBody({
+          invoices: [
+            {
+              id: 'uuid-api-listed-invoice',
+              invoiceNumber: 'INV-API-LISTED-001',
+              buyer: 'Northstar Buyer LLC',
+              amount: 50000,
+              maturityDate: '2026-08-01',
+              issueDate: '2026-06-01',
+              dueDate: '2026-08-01',
+              status: 'FACTORING_REQUESTED',
+              fundingStatus: 'LISTED',
+              fundingOfferId: 'offer-1',
+              financeabilityId: 'financeability-1',
+              offeredAmount: 45000,
+              advanceAmount: 45000,
+              marketplaceSubmittedAt: '2026-06-10T00:00:00.000Z',
+            },
+          ],
+          registeredBuyers: [],
+        }).data,
+      })
+    );
+
+    render(<ApiSupplierWorkspace accessRole="Supplier" />);
+
+    await user.click(await screen.findByRole('button', { name: /Invoice Queue/i }));
+
+    const table = screen.getByRole('table');
+    expect(within(table).getByRole('columnheader', { name: /Funding Status/i })).toBeInTheDocument();
+    expect(within(table).getAllByText(/Marketplace Listed/i).length).toBeGreaterThan(0);
+    expect(within(table).getByText(/Factoring requested/i)).toBeInTheDocument();
+    expect(within(table).queryByText(/^Finance ready$/i)).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: /Request Financing/i })).not.toBeInTheDocument();
+
+    await user.click(within(table).getByRole('button', { name: 'INV-API-LISTED-001' }));
+
+    const dialog = screen.getByRole('dialog', { name: /Read-only invoice details/i });
+    expect(within(dialog).getByText(/Funding Status/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Marketplace Listed/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/offer-1/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/\$45,000.00/i)).toBeInTheDocument();
   });
 
   it('loads supplier analytics from VerityAPI and renders the dashboard overview', async () => {

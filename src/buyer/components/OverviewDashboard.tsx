@@ -11,17 +11,19 @@ import {
   Globe2, 
   Download, 
   Coins, 
-  HelpCircle, 
   ChevronRight, 
   Wallet,
-  Play,
   ArrowUpRight,
   ArrowDownLeft,
-  DollarSign,
-  AlertCircle
+  CircleDollarSign,
+  ShieldCheck,
+  ReceiptText,
+  Percent
 } from 'lucide-react';
 import { Invoice, FundingRequest, LiquidityProfile } from '../types';
 import { getInvoiceDisplayNumber } from '../../lib/invoiceDisplay';
+import { getInvoiceStatusDisplay } from '../../lib/invoiceStatusDisplay';
+import { buildBuyerDashboardAnalytics } from '../analytics';
 
 interface OverviewDashboardProps {
   invoices: Invoice[];
@@ -54,15 +56,12 @@ export default function OverviewDashboard({
   const [newReqDesc, setNewReqDesc] = useState('Immediate liquidity settlement');
 
   const pendingCount = invoices.filter(inv => inv.status === 'PENDING_VERIFICATION').length;
-  
-  // Calculate total USDC value of verified vs pending
-  const totalVerifiedPayables = invoices
-    .filter(inv => inv.status === 'VERIFIED')
-    .reduce((sum, inv) => sum + inv.amount, 0);
-
-  const totalPendingPayables = invoices
-    .filter(inv => inv.status === 'PENDING_VERIFICATION')
-    .reduce((sum, inv) => sum + inv.amount, 0);
+  const analytics = buildBuyerDashboardAnalytics(invoices, new Date(), liquidity.availableLiquidity);
+  const nextCashFlowBuckets = analytics.cashFlowBuckets.filter((bucket) => bucket.totalAmount > 0).slice(0, 3);
+  const latestTrends = analytics.timeTrends.slice(-3);
+  const paymentCompletionPercent = `${(analytics.paymentCompletionRatio * 100).toFixed(1)}%`;
+  const liquidityCoveragePercent = `${(analytics.liquidityCoverageRatio * 100).toFixed(1)}%`;
+  const topSupplierExposures = analytics.supplierConcentration.slice(0, 3);
 
   const handleDeposit = () => {
     const val = parseFloat(txAmount);
@@ -136,16 +135,16 @@ export default function OverviewDashboard({
         {/* Metric 1 */}
         <div id="metric-card-pending" className="bg-white p-5 rounded-xl border border-[#E5E7EB] hover:shadow-xs transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between border-b border-dashed border-slate-100 pb-3 mb-3">
-            <span className="text-slate-500 text-xs font-semibold font-sans tracking-tight">Pending Funding</span>
+            <span className="text-slate-500 text-xs font-semibold font-sans tracking-tight">Invoice Volume</span>
             <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
               <FileText className="w-4 h-4" />
             </div>
           </div>
           <div>
-            <span className="text-3xl font-extrabold font-sans text-slate-900">{pendingCount}</span>
+            <span className="text-3xl font-extrabold font-sans text-slate-900">{analytics.totalInvoiceCount}</span>
             <div className="flex items-center gap-1.5 mt-2">
               <span className="bg-amber-100 text-amber-800 text-[10px] font-bold py-0.5 px-2 rounded-full uppercase tracking-wider font-mono">
-                Requires Review
+                USDC {analytics.totalInvoiceValue.toLocaleString()}
               </span>
             </div>
           </div>
@@ -154,18 +153,18 @@ export default function OverviewDashboard({
         {/* Metric 2 */}
         <div id="metric-card-payables" className="bg-white p-5 rounded-xl border border-[#E5E7EB] hover:shadow-xs transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between border-b border-dashed border-slate-100 pb-3 mb-3">
-            <span className="text-slate-500 text-xs font-semibold font-sans tracking-tight">Active Payables</span>
+            <span className="text-slate-500 text-xs font-semibold font-sans tracking-tight">Open Exposure</span>
             <div className="w-8 h-8 rounded-lg bg-[#0052cc]/10 flex items-center justify-center text-[#0052cc]">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
           <div>
             <span className="text-2xl font-extrabold font-sans text-slate-900">
-              USDC {(totalVerifiedPayables / 1000).toFixed(1)}k
+              USDC {(analytics.openInvoiceValue / 1000).toFixed(1)}k
             </span>
             <div className="flex items-center gap-1 mt-2 text-emerald-600 font-sans font-semibold text-xs">
               <TrendingUp className="w-3.5 h-3.5" />
-              <span>+5.2% vs last month</span>
+              <span>Unpaid obligations</span>
             </div>
           </div>
         </div>
@@ -173,16 +172,18 @@ export default function OverviewDashboard({
         {/* Metric 3 */}
         <div id="metric-card-maturing" className="bg-white p-5 rounded-xl border border-[#E5E7EB] hover:shadow-xs transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between border-b border-dashed border-slate-100 pb-3 mb-3">
-            <span className="text-slate-500 text-xs font-semibold font-sans tracking-tight">Upcoming Maturities (7d)</span>
+            <span className="text-slate-500 text-xs font-semibold font-sans tracking-tight">Upcoming Cash Flow</span>
             <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600">
               <Calendar className="w-4 h-4" />
             </div>
           </div>
           <div>
-            <span className="text-2xl font-extrabold font-sans text-slate-900">USDC 850K</span>
+            <span className="text-2xl font-extrabold font-sans text-slate-900">
+              USDC {(analytics.upcomingMaturityValue / 1000).toFixed(1)}k
+            </span>
             <div className="flex items-center gap-1.5 mt-2">
               <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold py-0.5 px-2 rounded-full uppercase tracking-wider font-mono">
-                Fully Funded
+                Next 30 Days
               </span>
             </div>
           </div>
@@ -191,14 +192,16 @@ export default function OverviewDashboard({
         {/* Metric 4 */}
         <div id="metric-card-suppliers" className="bg-white p-5 rounded-xl border border-[#E5E7EB] hover:shadow-xs transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between border-b border-dashed border-slate-100 pb-3 mb-3">
-            <span className="text-slate-500 text-xs font-semibold font-sans tracking-tight">Total Suppliers Active</span>
+            <span className="text-slate-500 text-xs font-semibold font-sans tracking-tight">Liquidity Coverage</span>
             <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-600">
               <Globe2 className="w-4 h-4" />
             </div>
           </div>
           <div>
-            <span className="text-3xl font-extrabold font-sans text-slate-900">48</span>
-            <p className="text-slate-400 text-xs mt-1.5 font-sans font-medium">Across 3 Geographies</p>
+            <span className="text-3xl font-extrabold font-sans text-slate-900">{liquidityCoveragePercent}</span>
+            <p className="text-slate-400 text-xs mt-1.5 font-sans font-medium">
+              {analytics.paymentDueValue > 0 ? `USDC ${analytics.paymentDueValue.toLocaleString()} due` : 'No unpaid exposure'}
+            </p>
           </div>
         </div>
       </div>
@@ -228,6 +231,7 @@ export default function OverviewDashboard({
                     <th className="py-2.5 px-4 font-semibold">Supplier</th>
                     <th className="py-2.5 px-4 font-semibold">Invoice Number</th>
                     <th className="py-2.5 px-4 font-semibold text-right">Amount</th>
+                    <th className="py-2.5 px-4 font-semibold">Status</th>
                     <th className="py-2.5 px-4 font-semibold">Maturity Date</th>
                     <th className="py-2.5 px-4 font-semibold text-center">Action</th>
                   </tr>
@@ -235,7 +239,7 @@ export default function OverviewDashboard({
                 <tbody className="divide-y divide-[#E5E7EB] text-xs">
                   {invoices.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-400 font-sans">
+                      <td colSpan={6} className="py-8 text-center text-slate-400 font-sans">
                         No pending reviews. All clear!
                       </td>
                     </tr>
@@ -252,7 +256,6 @@ export default function OverviewDashboard({
                             <div className="font-bold text-slate-800 font-sans group-hover:text-[#0052cc] transition-colors">
                               {inv.supplierName}
                             </div>
-                            <span className="font-mono text-[10px] text-slate-400 font-medium">ID: {inv.supplierId}</span>
                           </div>
                         </td>
                         <td className="py-3 px-4 font-mono font-bold text-slate-600">
@@ -260,6 +263,11 @@ export default function OverviewDashboard({
                         </td>
                         <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
                           {inv.amount.toLocaleString()} <span className="text-slate-400 text-[10px] font-medium">{inv.currency}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={getInvoiceStatusDisplay(inv.status).className}>
+                            {getInvoiceStatusDisplay(inv.status).label}
+                          </span>
                         </td>
                         <td className="py-3 px-4 font-sans text-slate-500 font-medium whitespace-nowrap">
                           {inv.maturityDate}
@@ -287,6 +295,144 @@ export default function OverviewDashboard({
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-xs p-5" id="buyer-analytics-card">
+            <div className="flex items-center justify-between border-b border-dashed border-slate-100 pb-3 mb-4">
+              <div>
+                <h3 className="font-sans font-bold text-slate-800 text-sm">Invoice Analytics</h3>
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-mono font-semibold">
+                  Status volume and time-series trends
+                </span>
+              </div>
+              <TrendingUp className="w-4 h-4 text-slate-400" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                {analytics.statusVolumes.map((item) => (
+                  <div key={item.status} className="flex items-center justify-between text-xs rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
+                    <span className={getInvoiceStatusDisplay(item.status).className}>{item.status}</span>
+                    <span className="font-mono font-bold text-slate-800">
+                      {item.count} / USDC {item.totalAmount.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-2">
+                {latestTrends.map((trend) => (
+                  <div key={trend.period} className="rounded-lg border border-slate-100 bg-white px-3 py-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-mono font-bold text-slate-500">{trend.period}</span>
+                      <span className="font-mono font-bold text-slate-900">USDC {trend.totalAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-[#0052cc]"
+                        style={{ width: `${Math.min(100, (trend.totalAmount / Math.max(analytics.totalInvoiceValue, 1)) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-sans">{trend.invoiceCount} invoices</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-xs p-5" id="buyer-factoring-exposure-card">
+              <div className="flex items-center justify-between border-b border-dashed border-slate-100 pb-3 mb-4">
+                <div>
+                  <h3 className="font-sans font-bold text-slate-800 text-sm">Factoring Exposure</h3>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-mono font-semibold">
+                    Supplier-financed payables
+                  </span>
+                </div>
+                <CircleDollarSign className="w-4 h-4 text-sky-500" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-sky-50 border border-sky-100 p-3">
+                  <span className="text-[10px] uppercase tracking-wider font-mono font-bold text-sky-700">Factored Value</span>
+                  <div className="mt-1 text-lg font-extrabold text-slate-900 font-sans">
+                    USDC {analytics.factoredValue.toLocaleString()}
+                  </div>
+                </div>
+                <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                  <span className="text-[10px] uppercase tracking-wider font-mono font-bold text-slate-500">Invoices</span>
+                  <div className="mt-1 text-lg font-extrabold text-slate-900 font-sans">
+                    {analytics.factoredInvoiceCount}
+                  </div>
+                </div>
+                <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                  <span className="text-[10px] uppercase tracking-wider font-mono font-bold text-slate-500">Exposure Share</span>
+                  <div className="mt-1 text-lg font-extrabold text-slate-900 font-sans">
+                    {analytics.factoredExposurePercent.toFixed(1)}%
+                  </div>
+                </div>
+                <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                  <span className="text-[10px] uppercase tracking-wider font-mono font-bold text-slate-500">Discount Impact</span>
+                  <div className="mt-1 text-lg font-extrabold text-slate-900 font-sans">
+                    USDC {analytics.discountImpactValue.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between rounded-lg border border-sky-100 bg-white px-3 py-2 text-xs">
+                <span className={getInvoiceStatusDisplay('FACTORED').className}>FACTORED</span>
+                <span className="font-sans font-semibold text-slate-500">Maturity obligation remains with buyer</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-xs p-5" id="buyer-settlement-progress-card">
+              <div className="flex items-center justify-between border-b border-dashed border-slate-100 pb-3 mb-4">
+                <div>
+                  <h3 className="font-sans font-bold text-slate-800 text-sm">Settlement Progress</h3>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-mono font-semibold">
+                    Paid value and readiness
+                  </span>
+                </div>
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between text-xs mb-2">
+                    <span className="font-sans font-semibold text-slate-500">Payment Completion</span>
+                    <span className="font-mono font-bold text-slate-900">{paymentCompletionPercent}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-emerald-500"
+                      style={{ width: `${Math.min(100, analytics.paymentCompletionRatio * 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-3">
+                    <span className="text-[10px] uppercase tracking-wider font-mono font-bold text-emerald-700">Settled</span>
+                    <div className="mt-1 font-mono font-bold text-slate-900">
+                      {analytics.settledInvoiceCount} / USDC {analytics.settledValue.toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-rose-50 border border-rose-100 p-3">
+                    <span className="text-[10px] uppercase tracking-wider font-mono font-bold text-rose-700">Overdue</span>
+                    <div className="mt-1 font-mono font-bold text-slate-900">
+                      USDC {analytics.overduePaymentValue.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs">
+                  <span className="font-sans font-semibold text-slate-500">Liquidity Coverage</span>
+                  <span className={`font-mono font-bold ${
+                    analytics.liquidityCoverageRatio >= 1 ? 'text-emerald-600' : analytics.liquidityCoverageRatio >= 0.5 ? 'text-amber-600' : 'text-rose-600'
+                  }`}>
+                    {liquidityCoveragePercent}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -446,57 +592,71 @@ export default function OverviewDashboard({
             </div>
 
             <div className="space-y-4">
-              <div className="relative pl-5 border-l-2 border-amber-400 py-0.5 animate-in slide-in-from-left-2 duration-150">
-                <div className="absolute -left-[6px] top-1.5 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-white" />
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-amber-600 font-bold font-sans uppercase tracking-wider block">Tomorrow</span>
-                </div>
-                <div className="flex justify-between items-start mt-1">
-                  <div>
-                    <span className="text-slate-800 font-extrabold text-xs">Apex Tech Supplies</span>
-                    <span className="font-mono text-[9px] text-slate-400 block mt-0.5">INV-2023-8901</span>
+              {(nextCashFlowBuckets.length > 0 ? nextCashFlowBuckets : analytics.cashFlowBuckets.slice(0, 3)).map((bucket) => (
+                <div key={bucket.label} className="relative pl-5 border-l-2 border-emerald-500 py-0.5">
+                  <div className="absolute -left-[6px] top-1.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500 text-[10px] font-bold font-mono uppercase">{bucket.label}</span>
                   </div>
-                  <span className="font-mono font-bold text-xs text-slate-800">USDC 145K</span>
+                  <div className="flex justify-between items-start mt-1">
+                    <div>
+                      <span className="text-slate-800 font-extrabold text-xs">{bucket.invoiceCount} Invoices</span>
+                      <span className="font-mono text-[9px] text-slate-400 block mt-0.5">Projected cash flow</span>
+                    </div>
+                    <span className="font-mono font-bold text-xs text-slate-800">USDC {bucket.totalAmount.toLocaleString()}</span>
+                  </div>
                 </div>
-                <div className="mt-1.5">
-                  <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-extrabold font-mono tracking-wider bg-amber-50 text-amber-700 uppercase border border-amber-100">
-                    PENDING REVIEW
+              ))}
+              <div className="pt-3 border-t border-dashed border-slate-100 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-sans font-semibold flex items-center gap-1.5">
+                    <ReceiptText className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Settled Payments</span>
+                  </span>
+                  <span className="font-mono font-bold text-emerald-600">
+                    USDC {analytics.settledValue.toLocaleString()}
                   </span>
                 </div>
-              </div>
-
-              <div className="relative pl-5 border-l-2 border-emerald-500 py-0.5">
-                <div className="absolute -left-[6px] top-1.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400 text-[10px] font-bold font-mono">Oct 18, 2024</span>
-                </div>
-                <div className="flex justify-between items-start mt-1">
-                  <div>
-                    <span className="text-slate-800 font-extrabold text-xs">Global Mfg Ltd</span>
-                    <span className="font-mono text-[9px] text-slate-400 block mt-0.5">INV-GM-442</span>
+                {analytics.healthIndicators.map((indicator) => (
+                  <div key={indicator.label} className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500 font-sans font-semibold flex items-center gap-1.5">
+                      {indicator.label === 'Factoring Exposure' ? <Percent className="w-3.5 h-3.5 text-sky-500" /> : null}
+                      <span>{indicator.label}</span>
+                    </span>
+                    <span className={`font-mono font-bold ${
+                      indicator.tone === 'risk' ? 'text-rose-600' : indicator.tone === 'watch' ? 'text-amber-600' : 'text-emerald-600'
+                    }`}>
+                      {indicator.value}
+                    </span>
                   </div>
-                  <span className="font-mono font-bold text-xs text-slate-800">USDC 89.5K</span>
-                </div>
-                <div className="mt-1.5">
-                  <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-extrabold font-mono tracking-wider bg-emerald-50 text-emerald-700 uppercase border border-emerald-100">
-                    AUTO-FUND SCHEDULED
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-xs p-5" id="buyer-supplier-concentration-card">
+            <div className="flex items-center justify-between border-b border-dashed border-slate-100 pb-3 mb-4">
+              <h3 className="font-sans font-bold text-slate-800 text-sm">Supplier Concentration</h3>
+              <Globe2 className="w-4 h-4 text-slate-400" />
+            </div>
+            <div className="space-y-3">
+              {(topSupplierExposures.length > 0 ? topSupplierExposures : [{ supplierName: 'No outstanding supplier exposure', invoiceCount: 0, outstandingValue: 0, exposurePercent: 0 }]).map((supplier) => (
+                <div key={supplier.supplierName} className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-sans font-bold text-slate-700">{supplier.supplierName}</span>
+                    <span className="font-mono font-bold text-slate-900">USDC {supplier.outstandingValue.toLocaleString()}</span>
+                  </div>
+                  <div className="mt-2 h-1.5 rounded-full bg-white overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-[#0052cc]"
+                      style={{ width: `${Math.min(100, supplier.exposurePercent)}%` }}
+                    />
+                  </div>
+                  <span className="mt-1 block text-[10px] font-mono font-bold text-slate-400">
+                    {supplier.invoiceCount} invoices / {supplier.exposurePercent.toFixed(1)}% open exposure
                   </span>
                 </div>
-              </div>
-
-              <div className="relative pl-5 border-l-2 border-slate-200 py-0.5">
-                <div className="absolute -left-[6px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-300 border-2 border-white" />
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400 text-[10px] font-bold font-mono">Oct 22, 2024</span>
-                </div>
-                <div className="flex justify-between items-start mt-1">
-                  <div>
-                    <span className="text-slate-800 font-extrabold text-xs">Batch Payment (3)</span>
-                    <span className="font-mono text-[9px] text-slate-400 block mt-0.5">Multiple Invoices</span>
-                  </div>
-                  <span className="font-mono font-bold text-xs text-slate-800">USDC 310K</span>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>

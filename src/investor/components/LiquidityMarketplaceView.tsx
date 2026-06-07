@@ -20,6 +20,8 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { Invoice, Settlement, ActiveScreen, WalletState } from '../types';
+import { getFundingStatusDisplay } from '../../lib/fundingStatusDisplay';
+import { getInvoiceStatusDisplay } from '../../lib/invoiceStatusDisplay';
 
 interface LiquidityMarketplaceViewProps {
   onNavigate: (screen: ActiveScreen) => void;
@@ -422,72 +424,79 @@ export default function LiquidityMarketplaceView({
 
         {/* Invoice Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="marketplace-cards-list">
-          {filteredInvoices.map((inv) => (
-            <div 
-              key={inv.id} 
-              className="bg-white rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-brand-primary hover:shadow-[0px_6px_18px_rgba(0,0,0,0.04)] transition-all duration-200 flex flex-col justify-between"
-              id={`invoice-card-${inv.id}`}
-            >
-              {/* Card top banner */}
-              <div className="p-5 border-b border-slate-100 flex items-start justify-between">
-                <div>
-                  <span className="font-mono text-xs font-extrabold text-brand-primary block">
-                    #{inv.id}
-                  </span>
-                  <p className="text-xs font-bold text-slate-800 mt-2 flex items-center space-x-1.5">
-                    <span>{inv.supplier}</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-brand-primary">{inv.obligor}</span>
-                  </p>
-                </div>
+          {filteredInvoices.map((inv) => {
+              const fundingStatusDisplay = getFundingStatusDisplay(inv.fundingStatus);
+              const invoiceStatusDisplay = getInvoiceStatusDisplay(inv.invoiceStatus ?? 'ACCEPTED');
+              return (
+                <div 
+                  key={inv.id} 
+                  className="bg-white rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-brand-primary hover:shadow-[0px_6px_18px_rgba(0,0,0,0.04)] transition-all duration-200 flex flex-col justify-between"
+                  id={`invoice-card-${inv.id}`}
+                >
+                  {/* Card top banner */}
+                  <div className="p-5 border-b border-slate-100 flex items-start justify-between">
+                    <div>
+                      <span className="font-mono text-xs font-extrabold text-brand-primary block">
+                        #{inv.invoiceNumber ?? inv.id}
+                      </span>
+                      <p className="text-xs font-bold text-slate-800 mt-2 flex items-center space-x-1.5">
+                        <span>{inv.supplier}</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="text-brand-primary">{inv.obligor}</span>
+                      </p>
+                    </div>
 
-                <div className="flex items-center space-x-1 shrink-0 bg-slate-50 border border-slate-100 px-2 py-1 rounded-lg">
-                  <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
-                  <span className="text-[10px] font-bold text-slate-700 font-mono">5.0</span>
-                </div>
-              </div>
+                    <div className="flex items-center space-x-1 shrink-0 bg-slate-50 border border-slate-100 px-2 py-1 rounded-lg">
+                      <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+                      <span className="text-[10px] font-bold text-slate-700 font-mono">5.0</span>
+                    </div>
+                  </div>
 
-              {/* Card body table */}
-              <div className="p-5 grid grid-cols-2 gap-4 text-xs">
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">Amount</span>
-                  <span className="font-mono font-extrabold text-slate-900 block mt-1">
-                    ${inv.faceValue.toLocaleString()}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">Yield</span>
-                  <span className="font-mono font-extrabold text-brand-secondary block mt-1">
-                    {inv.discount.toFixed(1)}%
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">Maturity</span>
-                  <span className="font-mono font-semibold text-slate-700 block mt-0.5">
-                    {inv.maturity} Days
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">Status</span>
-                  <div className="mt-1 flex">
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-brand-primary/10 text-brand-primary border border-brand-primary/20 px-2 py-0.5 rounded-lg">
-                      ACCEPTED
-                    </span>
+                  {/* Card body table */}
+                  <div className="p-5 grid grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">Amount</span>
+                      <span className="font-mono font-extrabold text-slate-900 block mt-1">
+                        ${inv.faceValue.toLocaleString()}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">Yield</span>
+                      <span className="font-mono font-extrabold text-brand-secondary block mt-1">
+                        {inv.discount.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">Maturity</span>
+                      <span className="font-mono font-semibold text-slate-700 block mt-0.5">
+                        {inv.maturity} Days
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">Status</span>
+                      <div className="mt-1 flex flex-col items-start gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-brand-primary/10 text-brand-primary border border-brand-primary/20 px-2 py-0.5 rounded-lg">
+                          {invoiceStatusDisplay.label}
+                        </span>
+                        <span className={`text-[10px] font-bold tracking-wider border px-2 py-0.5 rounded-lg ${fundingStatusDisplay.className}`}>
+                          {fundingStatusDisplay.label}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Button inside card */}
+                  <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
+                    <button
+                      onClick={() => onSelectInvoice(inv.id)}
+                      className="w-full bg-white hover:bg-brand-primary hover:text-white border border-slate-200 hover:border-brand-primary/40 text-brand-primary text-xs font-bold py-2 px-3 rounded-lg transition-all duration-150 cursor-pointer shadow-sm flex items-center justify-center space-x-1"
+                    >
+                      <span>Fund This Invoice</span>
+                    </button>
                   </div>
                 </div>
-              </div>
-
-              {/* Action Button inside card */}
-              <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
-                <button
-                  onClick={() => onSelectInvoice(inv.id)}
-                  className="w-full bg-white hover:bg-brand-primary hover:text-white border border-slate-200 hover:border-brand-primary/40 text-brand-primary text-xs font-bold py-2 px-3 rounded-lg transition-all duration-150 cursor-pointer shadow-sm flex items-center justify-center space-x-1"
-                >
-                  <span>Fund This Invoice</span>
-                </button>
-              </div>
-            </div>
-          ))}
+              );
+          })}
 
           {filteredInvoices.length === 0 && (
             <div className="col-span-full py-10 text-center text-slate-400 text-xs">

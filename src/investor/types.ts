@@ -5,6 +5,10 @@
 
 export interface Invoice {
   id: string;
+  invoiceId?: string;
+  invoiceNumber?: string;
+  fundingOfferId?: string;
+  financeabilityId?: string;
   obligor: string;
   supplier: string;
   logoType: 'logistics' | 'assembly' | 'renewables' | 'retail' | 'motors' | 'tech';
@@ -12,6 +16,12 @@ export interface Invoice {
   discount: number; // in percentage, e.g. 1.8
   maturity: number; // in days, e.g. 32
   status: 'Available' | 'Funded' | 'Settled' | 'Pending';
+  fundingStatus?: 'NOT_LISTED' | 'ELIGIBLE' | 'LISTED' | 'COMMITTED' | 'FUNDED' | 'CANCELLED' | 'EXPIRED';
+  invoiceStatus?: string;
+  offeredAmount?: number;
+  offerStatus?: string;
+  expiresAt?: string;
+  reserveRate?: number;
   buyerRating: string; // e.g., 'AAA', 'A-', 'B'
   buyerScore: number; // e.g., 94
   poNumber: string;

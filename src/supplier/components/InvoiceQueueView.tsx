@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Invoice, InvoiceStatus, MainRoute } from '../types';
 import { getInvoiceDisplayNumber } from '../../lib/invoiceDisplay';
+import { getFundingStatusDisplay, isActiveFundingStatus } from '../../lib/fundingStatusDisplay';
 
 interface InvoiceQueueViewProps {
   invoices: Invoice[];
@@ -29,6 +30,7 @@ interface InvoiceQueueViewProps {
 const statusLabels: Record<InvoiceStatus, string> = {
   PENDING: 'Pending buyer',
   ACCEPTED: 'Finance ready',
+  FACTORING_REQUESTED: 'Factoring requested',
   FACTORED: 'Factored',
   SETTLED: 'Settled',
   DISPUTED: 'Disputed',
@@ -37,6 +39,7 @@ const statusLabels: Record<InvoiceStatus, string> = {
 const statusStyles: Record<InvoiceStatus, string> = {
   PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
   ACCEPTED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  FACTORING_REQUESTED: 'bg-blue-50 text-[#0052CC] border-blue-200',
   FACTORED: 'bg-blue-50 text-[#0052CC] border-blue-200',
   SETTLED: 'bg-slate-100 text-slate-600 border-slate-200',
   DISPUTED: 'bg-rose-50 text-rose-700 border-rose-200',
@@ -45,6 +48,7 @@ const statusStyles: Record<InvoiceStatus, string> = {
 const statusIcons: Record<InvoiceStatus, React.ComponentType<{ className?: string }>> = {
   PENDING: Clock,
   ACCEPTED: CheckCircle,
+  FACTORING_REQUESTED: Wallet,
   FACTORED: Wallet,
   SETTLED: ShieldCheck,
   DISPUTED: AlertTriangle,
@@ -56,6 +60,14 @@ const formatCurrency = (amount: number) =>
     currency: 'USD',
     maximumFractionDigits: 0,
   }).format(amount);
+
+function getInvoiceLifecycleLabel(invoice: Invoice) {
+  if (invoice.status === 'ACCEPTED' && isActiveFundingStatus(invoice.fundingStatus)) {
+    return 'Accepted';
+  }
+
+  return statusLabels[invoice.status];
+}
 
 export default function InvoiceQueueView({
   invoices,
@@ -97,7 +109,7 @@ export default function InvoiceQueueView({
       .filter((invoice) => invoice.status !== 'SETTLED')
       .reduce((total, invoice) => total + (invoice.grossAmount || invoice.amount), 0);
     const financeReady = invoices
-      .filter((invoice) => invoice.status === 'ACCEPTED')
+      .filter((invoice) => invoice.status === 'ACCEPTED' && !isActiveFundingStatus(invoice.fundingStatus))
       .reduce((total, invoice) => total + (invoice.grossAmount || invoice.amount), 0);
     const disputed = invoices
       .filter((invoice) => invoice.status === 'DISPUTED')
@@ -112,7 +124,7 @@ export default function InvoiceQueueView({
   }, [invoices]);
 
   const renderPrimaryAction = (invoice: Invoice) => {
-    if (invoice.status === 'ACCEPTED') {
+    if (invoice.status === 'ACCEPTED' && !isActiveFundingStatus(invoice.fundingStatus)) {
       return (
         <button
           type="button"
@@ -122,6 +134,22 @@ export default function InvoiceQueueView({
           Request Financing
           <ArrowRight className="h-3.5 w-3.5" />
         </button>
+      );
+    }
+
+    if (invoice.status === 'ACCEPTED' && isActiveFundingStatus(invoice.fundingStatus)) {
+      return (
+        <span className="inline-flex items-center justify-center rounded-[6px] border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-[#0052CC]">
+          Marketplace Listed
+        </span>
+      );
+    }
+
+    if (invoice.status === 'FACTORING_REQUESTED') {
+      return (
+        <span className="inline-flex items-center justify-center rounded-[6px] border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-[#0052CC]">
+          Marketplace Listed
+        </span>
       );
     }
 
@@ -245,6 +273,7 @@ export default function InvoiceQueueView({
                 <option value="ALL">All statuses</option>
                 <option value="PENDING">Pending buyer</option>
                 <option value="ACCEPTED">Finance ready</option>
+                <option value="FACTORING_REQUESTED">Factoring requested</option>
                 <option value="FACTORED">Factored</option>
                 <option value="DISPUTED">Disputed</option>
                 <option value="SETTLED">Settled</option>
@@ -286,6 +315,7 @@ export default function InvoiceQueueView({
                   <th className="px-4 py-3">Amount</th>
                   <th className="px-4 py-3">Maturity Date</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Funding Status</th>
                   <th className="px-4 py-3 text-right">Primary Action</th>
                 </tr>
               </thead>
@@ -293,6 +323,7 @@ export default function InvoiceQueueView({
                 {filteredInvoices.map((invoice) => {
                   const StatusIcon = statusIcons[invoice.status];
                   const displayNumber = getInvoiceDisplayNumber(invoice);
+                  const fundingStatusDisplay = getFundingStatusDisplay(invoice.fundingStatus);
 
                   return (
                     <tr key={invoice.id} className="transition-colors hover:bg-slate-50/70">
@@ -325,8 +356,20 @@ export default function InvoiceQueueView({
                           className={`inline-flex items-center gap-1.5 rounded-[6px] border px-2.5 py-1 text-[11px] font-bold ${statusStyles[invoice.status]}`}
                         >
                           <StatusIcon className="h-3.5 w-3.5" />
-                          {statusLabels[invoice.status]}
+                          {getInvoiceLifecycleLabel(invoice)}
                         </span>
+                      </td>
+                      <td className="px-4 py-4 align-top">
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-[6px] border px-2.5 py-1 text-[11px] font-bold ${fundingStatusDisplay.className}`}
+                        >
+                          {fundingStatusDisplay.label}
+                        </span>
+                        {invoice.fundingOfferId && (
+                          <p className="mt-1 max-w-[150px] truncate font-mono text-[10px] text-slate-400">
+                            {invoice.fundingOfferId}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-4 text-right align-top">{renderPrimaryAction(invoice)}</td>
                     </tr>

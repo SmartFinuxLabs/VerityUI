@@ -32,6 +32,8 @@ import {
 
 import { ActiveScreen, Invoice, Settlement, LedgerRow, WalletState } from './types';
 import { getInvestorWorkspaceInitialState, isDemoWorkspaceDataMode, loadInvestorWorkspaceState } from '../lib/workspaceData';
+import { getParticipantAccessSnapshot } from '../lib/participantAuth';
+import { verityApi } from '../lib/apiClient';
 
 import DirectFundingView from './components/DirectFundingView';
 import LiquidityMarketplaceView from './components/LiquidityMarketplaceView';
@@ -63,6 +65,9 @@ export default function InvestorWorkspace({
   const [availableCapital, setAvailableCapital] = useState(initialWorkspaceState.availableCapital);
   const [projectedYield, setProjectedYield] = useState(initialWorkspaceState.projectedYield);
   const [ytdEarned, setYtdEarned] = useState(initialWorkspaceState.ytdEarned);
+  const [investorOrganizationId, setInvestorOrganizationId] = useState<string | null>(
+    initialWorkspaceState.investorOrganizationId
+  );
 
   // Invoices & Settlements lists with dynamic modifications
   const [invoices, setInvoices] = useState<Invoice[]>(initialWorkspaceState.invoices);
@@ -106,6 +111,7 @@ export default function InvestorWorkspace({
     loadInvestorWorkspaceState()
       .then((state) => {
         if (!isMounted) return;
+        setInvestorOrganizationId(state.investorOrganizationId);
         setInvoices(state.invoices);
         setSettlements(state.settlements);
         setLedgerRows(state.ledgerRows);
@@ -127,6 +133,21 @@ export default function InvestorWorkspace({
       isMounted = false;
     };
   }, []);
+
+  const refreshInvestorWorkspace = async () => {
+    const state = await loadInvestorWorkspaceState();
+    setInvestorOrganizationId(state.investorOrganizationId);
+    setInvoices(state.invoices);
+    setSettlements(state.settlements);
+    setLedgerRows(state.ledgerRows);
+    setTotalCommitted(state.totalCommitted);
+    setActiveInvestments(state.activeInvestments);
+    setAvailableCapital(state.availableCapital);
+    setProjectedYield(state.projectedYield);
+    setYtdEarned(state.ytdEarned);
+    setWorkspaceDataStatus('ready');
+    setWorkspaceDataError('');
+  };
 
   // Action: Export CSV simulation
   const handleExportCSV = () => {
@@ -168,8 +189,32 @@ export default function InvestorWorkspace({
   };
 
   // Action: Fund invoice callback from Deep Dive view
-  const handleFundInvoice = (invoiceId: string, advanceAmt: number) => {
+  const handleFundInvoice = async (invoiceId: string, advanceAmt: number) => {
     // Locate invoice in list
+    const invItem = invoices.find(inv => inv.id === invoiceId);
+
+    if (!isDemoWorkspaceDataMode()) {
+      const snapshot = getParticipantAccessSnapshot();
+      if (snapshot?.provider !== 'api' || !snapshot.accessToken) {
+        throw new Error('API investor funding requires a signed-in VerityAPI session.');
+      }
+      if (!investorOrganizationId) {
+        throw new Error('Investor organization is required before funding marketplace invoices.');
+      }
+      if (!invItem?.fundingOfferId) {
+        throw new Error('Funding offer ID is required before funding marketplace invoices.');
+      }
+
+      await verityApi.createFundingCommitment(snapshot.accessToken, invItem.fundingOfferId, {
+        investorId: investorOrganizationId,
+        committedAmount: advanceAmt,
+        offeredRate: invItem.discount / 100,
+        commitmentTxRef: `VERITYUI-${invItem.fundingOfferId}-${Date.now()}`,
+      });
+      await refreshInvestorWorkspace();
+      return;
+    }
+
     const updatedInvoices = invoices.map(inv => {
       if (inv.id === invoiceId) {
         return { ...inv, status: 'Funded' as const };
@@ -187,7 +232,6 @@ export default function InvestorWorkspace({
     setTotalCommitted(prev => prev + advanceAmt);
 
     // Calculate dynamic yield part
-    const invItem = invoices.find(inv => inv.id === invoiceId);
     let yieldEarned = 0;
     let obligorName = "Unknown Obligor";
     if (invItem) {

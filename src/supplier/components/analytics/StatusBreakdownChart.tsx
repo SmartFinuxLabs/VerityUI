@@ -13,6 +13,7 @@ interface StatusBreakdownChartProps {
 const STATUS_COLORS: Record<string, string> = {
   PENDING: '#f59e0b',
   ACCEPTED: '#0052CC',
+  FACTORING_REQUESTED: '#0ea5e9',
   FACTORED: '#8b5cf6',
   SETTLED: '#10b981',
   DISPUTED: '#dc2626',

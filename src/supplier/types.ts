@@ -1,4 +1,4 @@
-export type InvoiceStatus = 'PENDING' | 'ACCEPTED' | 'FACTORED' | 'SETTLED' | 'DISPUTED';
+export type InvoiceStatus = 'PENDING' | 'ACCEPTED' | 'FACTORING_REQUESTED' | 'FACTORED' | 'SETTLED' | 'DISPUTED';
 
 export interface Invoice {
   id: string;
@@ -12,6 +12,14 @@ export interface Invoice {
   issueDate?: string;
   dueDate?: string;
   status: InvoiceStatus;
+  financeabilityId?: string;
+  fundingOfferId?: string;
+  fundingStatus?: 'NOT_LISTED' | 'ELIGIBLE' | 'LISTED' | 'COMMITTED' | 'FUNDED' | 'CANCELLED' | 'EXPIRED';
+  offeredAmount?: number;
+  advanceAmount?: number;
+  yieldApr?: number;
+  reserveRate?: number;
+  marketplaceSubmittedAt?: string;
   originalQty?: number;
   unitPrice?: number;
   itemDescription?: string;

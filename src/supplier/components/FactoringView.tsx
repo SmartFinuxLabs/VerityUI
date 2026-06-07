@@ -15,12 +15,28 @@ import {
 } from 'lucide-react';
 import { Invoice, MainRoute } from '../types';
 import { getInvoiceDisplayNumber } from '../../lib/invoiceDisplay';
+import { isActiveFundingStatus } from '../../lib/fundingStatusDisplay';
 
 interface FactoringViewProps {
   invoices: Invoice[];
   onSelectRoute: (route: MainRoute) => void;
-  onSubmitFactoringBatch: (invoiceIds: string[], totalAdvance: number) => void;
+  onSubmitFactoringBatch: (invoiceIds: string[], totalAdvance: number, terms: FactoringSubmissionTerms) => void | Promise<void>;
   preselectedInvoiceId: string | null;
+}
+
+export interface FactoringSubmissionTerms {
+  selectedTotalAmount: number;
+  advanceRate: number;
+  estimatedAdvance: number;
+  platformFee: number;
+  reserveRate: number;
+  yieldApr: number;
+  settlementCurrency: 'USDC';
+  expiresAt: string;
+}
+
+function isEligibleForFactoring(invoice: Invoice) {
+  return invoice.status === 'ACCEPTED' && !isActiveFundingStatus(invoice.fundingStatus);
 }
 
 export default function FactoringView({
@@ -35,16 +51,16 @@ export default function FactoringView({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
+  const [submissionError, setSubmissionError] = useState('');
 
   // Initialize the list of eligible invoices
   useEffect(() => {
-    // Collect all accepted invoices that are eligible for factoring
-    const eligible = invoices.filter(inv => inv.status === 'ACCEPTED');
+    const eligible = invoices.filter(isEligibleForFactoring);
     setLocalInvoices(eligible);
 
     // If there is a preselected ID (e.g. user clicked "Request Financing" on INV-002), select it!
     // Otherwise select the ones matching the mock screen (INV-2023-0891, INV-2023-0904, INV-2023-0912)
-    if (preselectedInvoiceId) {
+    if (preselectedInvoiceId && eligible.some((invoice) => invoice.id === preselectedInvoiceId)) {
       setSelectedIds([preselectedInvoiceId]);
     } else {
       const defaultMockInvoiceNumbers = ['INV-2023-0891', 'INV-2023-0904', 'INV-2023-0912'];
@@ -70,6 +86,7 @@ export default function FactoringView({
   
   const ADVANCE_RATE = 0.90; // 90%
   const PLATFORM_FEE_RATE = 0.005; // 0.5%
+  const RESERVE_RATE = 0.10; // 10%
   
   const estimatedAdvance = totalSelectedAmount * ADVANCE_RATE;
   const estimatedPlatformFee = totalSelectedAmount * PLATFORM_FEE_RATE;
@@ -83,19 +100,34 @@ export default function FactoringView({
     }
 
     setIsSubmitting(true);
+    setSubmissionError('');
     
     // Simulate smart contract generation & indexing delay
     setTimeout(() => {
-      setIsSubmitting(false);
-      setShowSuccessNotification(true);
-      
-      // Call parent dispatch to convert chosen invoice statuses to 'FACTORED'
-      onSubmitFactoringBatch(selectedIds, estimatedAdvance);
-      
-      // Continue the investor flow into settlement after funding is confirmed.
-      setTimeout(() => {
-        onSelectRoute('settlement');
-      }, 2500);
+      void (async () => {
+        try {
+          await onSubmitFactoringBatch(selectedIds, estimatedAdvance, {
+            selectedTotalAmount: totalSelectedAmount,
+            advanceRate: ADVANCE_RATE,
+            estimatedAdvance,
+            platformFee: estimatedPlatformFee,
+            reserveRate: RESERVE_RATE,
+            yieldApr: 0.12,
+            settlementCurrency: 'USDC',
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          });
+          setShowSuccessNotification(true);
+          
+          // Continue the investor flow into settlement after funding is confirmed.
+          setTimeout(() => {
+            onSelectRoute('settlement');
+          }, 2500);
+        } catch (error) {
+          setSubmissionError(error instanceof Error ? error.message : 'Marketplace submission failed.');
+        } finally {
+          setIsSubmitting(false);
+        }
+      })();
 
     }, 2000);
   };
@@ -395,6 +427,11 @@ export default function FactoringView({
               Invoiced assets have been registered inside the escrow pool. Opening settlement workflow...
             </p>
           </div>
+        </div>
+      )}
+      {submissionError && (
+        <div className="rounded-[8px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+          {submissionError}
         </div>
       )}
 

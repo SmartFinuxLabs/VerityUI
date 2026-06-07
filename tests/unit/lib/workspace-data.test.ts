@@ -478,6 +478,62 @@ describe('workspace data services', () => {
     });
   });
 
+  it('normalizes supplier invoice marketplace funding fields from VerityAPI', async () => {
+    const { participantAuth, workspaceData } = await importApiWorkspaceModules();
+    participantAuth.storeApiSession({
+      user: { id: 'user_2', email: 'supplier@test.local', userMetadata: { participantRole: 'Supplier' } },
+      accessToken: 'supplier-token',
+    });
+    vi.stubGlobal(
+      'fetch',
+      mockFetchJson(200, {
+        data: {
+          invoices: [
+            {
+              id: 'uuid-supplier-invoice-listed',
+              invoice_number: 'INV-API-LISTED-001',
+              buyer: 'Northstar Buyer LLC',
+              amount: 50000,
+              maturityDate: '2026-08-01',
+              status: 'ACCEPTED',
+              financeability_id: 'financeability-1',
+              funding_offer_id: 'offer-1',
+              funding_status: 'LISTED',
+              offered_amount: 45000,
+              advance_amount: 45000,
+              yield_apr: 0.12,
+              reserve_rate: 0.1,
+              marketplace_submitted_at: '2026-06-10T00:00:00.000Z',
+            },
+          ],
+          registeredBuyers: [],
+          availableLiquidity: 0,
+          escrowValue: 0,
+          onChainCredit: 0,
+          walletConnected: false,
+          walletAddress: null,
+        },
+      })
+    );
+
+    await expect(workspaceData.loadSupplierWorkspaceState()).resolves.toMatchObject({
+      invoices: [
+        {
+          id: 'uuid-supplier-invoice-listed',
+          invoiceNumber: 'INV-API-LISTED-001',
+          financeabilityId: 'financeability-1',
+          fundingOfferId: 'offer-1',
+          fundingStatus: 'LISTED',
+          offeredAmount: 45000,
+          advanceAmount: 45000,
+          yieldApr: 0.12,
+          reserveRate: 0.1,
+          marketplaceSubmittedAt: '2026-06-10T00:00:00.000Z',
+        },
+      ],
+    });
+  });
+
   it('loads investor workspace state from VerityAPI without demo fallback', async () => {
     const { participantAuth, workspaceData } = await importApiWorkspaceModules();
     participantAuth.storeApiSession({
@@ -505,5 +561,115 @@ describe('workspace data services', () => {
     expect(state.invoices).toEqual([]);
     expect(state.invoices).not.toEqual(INVESTOR_INVOICES);
     expect(state.availableCapital).toBe(0);
+  });
+
+  it('normalizes investor marketplace invoices from VerityAPI', async () => {
+    const { participantAuth, workspaceData } = await importApiWorkspaceModules();
+    participantAuth.storeApiSession({
+      user: { id: 'user_3', email: 'investor@test.local', userMetadata: { participantRole: 'Investor' } },
+      accessToken: 'investor-token',
+    });
+    vi.stubGlobal(
+      'fetch',
+      mockFetchJson(200, {
+        data: {
+          invoices: [
+            {
+              id: 'INV-MKT-001',
+              invoice_id: 'invoice-1',
+              invoice_number: 'INV-MKT-001',
+              funding_offer_id: 'offer-1',
+              financeability_id: 'financeability-1',
+              supplier: 'Materion Corp',
+              obligor: 'Space Exploration Technologies Corp.',
+              face_value: 50000,
+              offered_amount: 45000,
+              discount: 12,
+              maturity: 55,
+              status: 'Available',
+              funding_status: 'LISTED',
+              buyer_rating: 'A',
+            },
+          ],
+          settlements: [],
+          ledgerRows: [],
+          totalCommitted: 0,
+          activeInvestments: 0,
+          availableCapital: 0,
+          projectedYield: 0,
+          ytdEarned: 0,
+        },
+      })
+    );
+
+    await expect(workspaceData.loadInvestorWorkspaceState()).resolves.toMatchObject({
+      invoices: [
+        {
+          id: 'INV-MKT-001',
+          invoiceId: 'invoice-1',
+          invoiceNumber: 'INV-MKT-001',
+          fundingOfferId: 'offer-1',
+          financeabilityId: 'financeability-1',
+          supplier: 'Materion Corp',
+          obligor: 'Space Exploration Technologies Corp.',
+          faceValue: 50000,
+          offeredAmount: 45000,
+          fundingStatus: 'LISTED',
+          buyerRating: 'A',
+        },
+      ],
+    });
+  });
+
+  it('derives investor funding status from authoritative offer status when funding status is absent', async () => {
+    const { participantAuth, workspaceData } = await importApiWorkspaceModules();
+    participantAuth.storeApiSession({
+      user: { id: 'user_3', email: 'investor@test.local', userMetadata: { participantRole: 'Investor' } },
+      accessToken: 'investor-token',
+    });
+    vi.stubGlobal(
+      'fetch',
+      mockFetchJson(200, {
+        data: {
+          invoices: [
+            {
+              id: 'INV-MKT-002',
+              invoice_id: 'invoice-2',
+              invoice_number: 'INV-MKT-002',
+              funding_offer_id: 'offer-2',
+              financeability_id: 'financeability-2',
+              supplier: 'Materion Corp',
+              obligor: 'Space Exploration Technologies Corp.',
+              face_value: 75000,
+              offered_amount: 67500,
+              discount: 11,
+              maturity: 60,
+              status: 'Available',
+              invoice_status: 'FACTORING_REQUESTED',
+              offer_status: 'OPEN',
+              buyer_rating: 'A',
+            },
+          ],
+          settlements: [],
+          ledgerRows: [],
+          totalCommitted: 0,
+          activeInvestments: 0,
+          availableCapital: 0,
+          projectedYield: 0,
+          ytdEarned: 0,
+        },
+      })
+    );
+
+    await expect(workspaceData.loadInvestorWorkspaceState()).resolves.toMatchObject({
+      invoices: [
+        {
+          id: 'INV-MKT-002',
+          invoiceStatus: 'FACTORING_REQUESTED',
+          offerStatus: 'OPEN',
+          fundingStatus: 'LISTED',
+        },
+      ],
+    });
   });
 });

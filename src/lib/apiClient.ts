@@ -67,7 +67,23 @@ export interface CreateInvoicePayload {
   metadata?: Record<string, unknown>;
 }
 
+export interface SubmitInvoiceToMarketplacePayload {
+  offeredAmount: number;
+  yieldApr: number;
+  reserveRate: number;
+  settlementCurrency: 'USDC';
+  expiresAt: string;
+}
+
+export interface CreateFundingCommitmentPayload {
+  investorId: string;
+  committedAmount: number;
+  offeredRate: number;
+  commitmentTxRef: string;
+}
+
 export interface InvestorWorkspaceApiState {
+  investorOrganizationId?: string | null;
   invoices?: InvestorInvoice[];
   settlements?: Settlement[];
   ledgerRows?: LedgerRow[];
@@ -84,13 +100,25 @@ interface ApiErrorBody {
 }
 
 async function requestApi<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(
+        `Unable to reach VerityAPI at ${apiBaseUrl}. Start VerityAPI or set VITE_RUN_MODE=demo for local demo login.`
+      );
+    }
+
+    throw error;
+  }
 
   if (!response.ok) {
     let errorBody: ApiErrorBody | undefined;
@@ -190,6 +218,16 @@ export const verityApi = {
     });
   },
 
+  submitInvoiceToMarketplace(accessToken: string, invoiceId: string, payload: SubmitInvoiceToMarketplacePayload) {
+    return requestApi<{ data?: unknown }>(`/invoices/${encodeURIComponent(invoiceId)}/marketplace-submissions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  },
+
   createInvoiceResolution(
     accessToken: string,
     invoiceId: string,
@@ -215,6 +253,16 @@ export const verityApi = {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+    });
+  },
+
+  createFundingCommitment(accessToken: string, offerId: string, payload: CreateFundingCommitmentPayload) {
+    return requestApi<{ data?: unknown }>(`/offers/${encodeURIComponent(offerId)}/commitments`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
     });
   },
 };

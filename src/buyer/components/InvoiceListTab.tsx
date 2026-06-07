@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { Invoice, LiquidityProfile } from '../types';
 import { getInvoiceDisplayNumber } from '../../lib/invoiceDisplay';
+import { getInvoiceStatusDisplay } from '../../lib/invoiceStatusDisplay';
+import { getSupplierDisplayName } from '../../lib/supplierDisplay';
 
 interface InvoiceListTabProps {
   invoices: Invoice[];
@@ -214,6 +216,7 @@ export default function InvoiceListTab({
                   <th className="py-2.5 px-4 font-semibold">Supplier</th>
                   <th className="py-2.5 px-4 font-semibold">Invoice Number</th>
                   <th className="py-2.5 px-4 font-semibold text-right">Amount</th>
+                  <th className="py-2.5 px-4 font-semibold">Status</th>
                   <th className="py-2.5 px-4 font-semibold">Maturity</th>
                   <th className="py-2.5 px-4 font-semibold text-center">Action</th>
                 </tr>
@@ -222,6 +225,8 @@ export default function InvoiceListTab({
                 {invoices.map((inv) => {
                   const isSelected = selectedReviewId === inv.id;
                   const displayNumber = getInvoiceDisplayNumber(inv);
+                  const statusDisplay = getInvoiceStatusDisplay(inv.status);
+                  const supplierDisplayName = getSupplierDisplayName(inv);
                   return (
                     <tr 
                       id={`verity-row-${inv.id}`}
@@ -239,10 +244,7 @@ export default function InvoiceListTab({
                       )}
 
                       <td className="py-3 px-4">
-                        <div>
-                          <div className="font-bold text-slate-800 font-sans">{inv.supplierName}</div>
-                          <span className="font-mono text-[10px] text-slate-400 font-medium">ID: {inv.supplierId}</span>
-                        </div>
+                        <div className="font-bold text-slate-800 font-sans">{supplierDisplayName}</div>
                       </td>
                       <td className="py-3 px-4 font-mono font-bold text-slate-600">
                         <button
@@ -258,6 +260,9 @@ export default function InvoiceListTab({
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
                         USD {inv.amount.toLocaleString()}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={statusDisplay.className}>{statusDisplay.label}</span>
                       </td>
                       <td className="py-3 px-4 font-sans text-slate-500 font-medium">
                         {inv.maturityDate}
@@ -311,17 +316,10 @@ export default function InvoiceListTab({
                 <span className="text-slate-400 text-[9px] uppercase font-bold tracking-wider font-mono">From Supplier</span>
                 <div className="flex justify-between items-center mt-1">
                   <div>
-                    <span className="font-sans font-extrabold text-slate-800 block text-xs">{currentInvoice.supplierName}</span>
-                    <span className="font-mono text-[10px] text-slate-400 font-medium">ID: {currentInvoice.supplierId}</span>
+                    <span className="font-sans font-extrabold text-slate-800 block text-xs">{getSupplierDisplayName(currentInvoice)}</span>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono ${
-                    currentInvoice.status === 'PENDING_VERIFICATION'
-                      ? 'bg-amber-100 text-amber-800'
-                      : currentInvoice.status === 'CONTESTED'
-                      ? 'bg-orange-100 text-orange-800'
-                      : 'bg-emerald-100 text-emerald-800'
-                  }`}>
-                    {currentInvoice.status.replace('_', ' ')}
+                  <span className={getInvoiceStatusDisplay(currentInvoice.status).className}>
+                    {getInvoiceStatusDisplay(currentInvoice.status).label}
                   </span>
                 </div>
               </div>

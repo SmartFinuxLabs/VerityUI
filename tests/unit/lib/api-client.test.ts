@@ -76,6 +76,14 @@ describe('verityApi client functions', () => {
     await expect(verityApi.signIn({ email: 'blocked@test.local', password: 'wrong' })).rejects.toThrow('Forbidden');
   });
 
+  it('replaces raw browser network failures with API mode guidance', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+
+    await expect(verityApi.signIn({ email: 'supplier@test.local', password: 'secret' })).rejects.toThrow(
+      'Unable to reach VerityAPI at http://localhost:8080/api/v1. Start VerityAPI or set VITE_RUN_MODE=demo for local demo login.'
+    );
+  });
+
   it('requests workspace data with bearer authorization', async () => {
     const fetchMock = mockFetchJson(200, { data: { invoices: [] } });
     vi.stubGlobal('fetch', fetchMock);
@@ -127,6 +135,37 @@ describe('verityApi client functions', () => {
           grossAmount: 1200,
           sourceSystemReference: 'INV-2026-001',
           metadata: { buyerName: 'Northstar Buyer LLC' },
+        }),
+      })
+    );
+  });
+
+  it('submits supplier invoices to marketplace with bearer authorization', async () => {
+    const fetchMock = mockFetchJson(201, { data: { fundingOfferId: 'offer-1' } });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await verityApi.submitInvoiceToMarketplace('supplier-token', 'invoice-1', {
+      offeredAmount: 45000,
+      yieldApr: 0.12,
+      reserveRate: 0.1,
+      settlementCurrency: 'USDC',
+      expiresAt: '2026-09-01T00:00:00.000Z',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:8080/api/v1/invoices/invoice-1/marketplace-submissions',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer supplier-token',
+          'Content-Type': 'application/json',
+        }),
+        body: JSON.stringify({
+          offeredAmount: 45000,
+          yieldApr: 0.12,
+          reserveRate: 0.1,
+          settlementCurrency: 'USDC',
+          expiresAt: '2026-09-01T00:00:00.000Z',
         }),
       })
     );

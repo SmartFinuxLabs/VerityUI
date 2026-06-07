@@ -7,6 +7,7 @@ import {
   isDemoWorkspaceDataMode,
   loadSupplierAnalytics,
   loadSupplierWorkspaceState,
+  persistSupplierDemoWorkspaceState,
   type SupplierAnalyticsState,
 } from '../lib/workspaceData';
 import { verityApi } from '../lib/apiClient';
@@ -22,6 +23,7 @@ import SettlementView from './components/SettlementView';
 import OverallDisputesView from './components/OverallDisputesView';
 import CreateInvoiceFullView from './components/create-invoice-wizard/CreateInvoiceFullView';
 import ReadOnlyInvoiceDetails from './components/ReadOnlyInvoiceDetails';
+import type { FactoringSubmissionTerms } from './components/FactoringView';
 
 interface SupplierWorkspaceProps {
   initialRoute?: MainRoute;
@@ -29,6 +31,13 @@ interface SupplierWorkspaceProps {
   accessRole?: string;
   workspacePerspective?: 'Supplier' | 'Investor';
   onResetAccess?: () => void;
+}
+
+function formatDateInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export default function SupplierWorkspace({
@@ -222,21 +231,69 @@ export default function SupplierWorkspace({
     setInvoices((prevInvoices) => [fullInvoice, ...prevInvoices]);
   };
 
-  const handleSubmitFactoringBatch = (invoiceIds: string[], totalAdvance: number) => {
+  const handleSubmitFactoringBatch = async (
+    invoiceIds: string[],
+    totalAdvance: number,
+    terms?: FactoringSubmissionTerms
+  ) => {
     const focusInvoiceId = invoiceIds[0] ?? null;
 
-    setInvoices((prevInvoices) =>
-      prevInvoices.map((inv) => {
+    if (!isDemoWorkspaceDataMode()) {
+      const snapshot = getParticipantAccessSnapshot();
+
+      if (snapshot?.provider !== 'api' || !snapshot.accessToken) {
+        throw new Error('API supplier marketplace submission requires a signed-in VerityAPI session.');
+      }
+
+      await Promise.all(
+        invoiceIds.map((invoiceId) =>
+          verityApi.submitInvoiceToMarketplace(snapshot.accessToken, invoiceId, {
+            offeredAmount: terms?.estimatedAdvance ?? totalAdvance,
+            yieldApr: terms?.yieldApr ?? 0.12,
+            reserveRate: terms?.reserveRate ?? 0.1,
+            settlementCurrency: terms?.settlementCurrency ?? 'USDC',
+            expiresAt: terms?.expiresAt ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          })
+        )
+      );
+
+      await refreshSupplierWorkspace();
+      setPreselectedInvoiceId(focusInvoiceId);
+      return;
+    }
+
+    setInvoices((prevInvoices) => {
+      const nextInvoices = prevInvoices.map((inv) => {
         if (invoiceIds.includes(inv.id)) {
           return {
             ...inv,
-            status: 'FACTORED' as InvoiceStatus,
+            fundingStatus: 'LISTED' as const,
+            fundingOfferId: inv.fundingOfferId ?? `demo-offer-${inv.id}`,
+            financeabilityId: inv.financeabilityId ?? `demo-financeability-${inv.id}`,
+            offeredAmount: terms?.estimatedAdvance ?? totalAdvance,
+            advanceAmount: terms?.estimatedAdvance ?? totalAdvance,
+            yieldApr: terms?.yieldApr ?? 0.12,
+            reserveRate: terms?.reserveRate ?? 0.1,
+            marketplaceSubmittedAt: new Date().toISOString(),
           };
         }
 
         return inv;
-      })
-    );
+      });
+
+      persistSupplierDemoWorkspaceState({
+        supplierOrganizationId,
+        invoices: nextInvoices,
+        registeredBuyers,
+        availableLiquidity: availableLiquidity + totalAdvance,
+        escrowValue: escrowValue + totalAdvance,
+        onChainCredit: Math.min(850, onChainCredit + 15),
+        walletConnected,
+        walletAddress,
+      });
+
+      return nextInvoices;
+    });
 
     setEscrowValue((prev) => prev + totalAdvance);
     setAvailableLiquidity((prev) => prev + totalAdvance);
@@ -517,7 +574,9 @@ export default function SupplierWorkspace({
               const now = new Date();
               const fallbackInvoiceNumber = `INV-${now.getFullYear()}-${Math.floor(Math.random() * 1000)}`;
               const invoiceNumber = data?.invoiceNumber || fallbackInvoiceNumber;
-              const dueDate = data?.dueDate || new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+              const fallbackDueDate = new Date(now);
+              fallbackDueDate.setMonth(fallbackDueDate.getMonth() + 2);
+              const dueDate = data?.dueDate || formatDateInput(fallbackDueDate);
               handleAddInvoice({
                 id: `supplier-invoice-${now.getTime()}`,
                 invoiceNumber,
@@ -525,7 +584,7 @@ export default function SupplierWorkspace({
                 buyer: data?.customer?.name || 'Global Corp',
                 amount: totalAmount,
                 itemDescription: firstItemDesc,
-                issueDate: data?.issueDate || now.toISOString().slice(0, 10),
+                issueDate: data?.issueDate || formatDateInput(now),
                 dueDate,
                 maturityDate: dueDate,
                 lineItems: data?.items,

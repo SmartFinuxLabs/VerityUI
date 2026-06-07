@@ -56,6 +56,11 @@ export interface Invoice {
   internalNotes?: string;
   signedAt?: string;
   acknowledgedTerms?: boolean;
+  factoredAmount?: number;
+  settledAt?: string;
+  paidAt?: string;
+  discountAmount?: number;
+  paymentStatus?: string;
 }
 
 export interface FundingRequest {

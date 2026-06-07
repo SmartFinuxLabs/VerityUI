@@ -8,13 +8,32 @@ interface CreateInvoiceModalProps {
   buyerOptions: RegisteredBuyerOption[];
 }
 
+function formatDateInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function addMonths(date: Date, months: number) {
+  const nextDate = new Date(date);
+  nextDate.setMonth(nextDate.getMonth() + months);
+  return nextDate;
+}
+
+function generateInvoiceNumber() {
+  return `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+}
+
 export default function CreateInvoiceModal({ onClose, onSubmitInvoice, buyerOptions }: CreateInvoiceModalProps) {
+  const today = new Date();
   
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [invoiceId, setInvoiceId] = useState(`INV-2026-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [invoiceId, setInvoiceId] = useState(generateInvoiceNumber);
   const [buyerId, setBuyerId] = useState(buyerOptions[0]?.buyerId ?? '');
   const [amountStr, setAmountStr] = useState('50000.00');
-  const [maturityDate, setMaturityDate] = useState('Aug 14, 2026');
+  const [issueDate, setIssueDate] = useState(formatDateInput(today));
+  const [dueDate, setDueDate] = useState(formatDateInput(addMonths(today, 2)));
   const [itemDescription, setItemDescription] = useState('Industrial Sensors Type-X');
   
   const [fileName, setFileName] = useState<string | null>(null);
@@ -72,7 +91,9 @@ export default function CreateInvoiceModal({ onClose, onSubmitInvoice, buyerOpti
       buyerId: selectedBuyer.buyerId,
       buyer: selectedBuyer.buyerName,
       amount: parseFloat(amountStr) || 25000,
-      maturityDate,
+      issueDate,
+      dueDate,
+      maturityDate: dueDate,
       originalQty: 500,
       unitPrice: 150,
       itemDescription
@@ -299,15 +320,25 @@ export default function CreateInvoiceModal({ onClose, onSubmitInvoice, buyerOpti
                   </div>
                 </div>
 
-                {/* Maturity Date */}
-                <div className="space-y-1">
-                  <span className="block text-[11.5px] font-bold text-slate-600">Maturity Date</span>
-                  <input
-                    type="text"
-                    value={maturityDate}
-                    onChange={(e) => setMaturityDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-250 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0052CC] rounded-[6px] px-3 py-2 text-[13px] font-semibold"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="space-y-1 block">
+                    <span className="block text-[11.5px] font-bold text-slate-600">Issue Date</span>
+                    <input
+                      type="date"
+                      value={issueDate}
+                      onChange={(e) => setIssueDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-250 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0052CC] rounded-[6px] px-3 py-2 text-[13px] font-semibold"
+                    />
+                  </label>
+                  <label className="space-y-1 block">
+                    <span className="block text-[11.5px] font-bold text-slate-600">Due Date</span>
+                    <input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-250 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0052CC] rounded-[6px] px-3 py-2 text-[13px] font-semibold"
+                    />
+                  </label>
                 </div>
 
                 {submitError && (

@@ -6,6 +6,7 @@ import { INITIAL_INVOICES as SUPPLIER_INVOICES } from '../supplier/data';
 import type { Invoice as SupplierInvoice, RegisteredBuyerOption } from '../supplier/types';
 import { verityApi } from './apiClient';
 import { getParticipantAccessSnapshot, type ParticipantAccessSnapshot } from './participantAuth';
+import { normalizeFundingStatus } from './fundingStatusDisplay';
 import { isDemoMode } from './runtimeMode';
 
 export interface BuyerWorkspaceState {
@@ -40,6 +41,7 @@ export interface SupplierAnalyticsState {
 }
 
 export interface InvestorWorkspaceState {
+  investorOrganizationId: string | null;
   invoices: InvestorInvoice[];
   settlements: Settlement[];
   ledgerRows: LedgerRow[];
@@ -84,8 +86,10 @@ export function getBuyerDemoWorkspaceState(): BuyerWorkspaceState {
 
 export function getSupplierDemoWorkspaceState(): SupplierWorkspaceState {
   const buyerInvoices = readJsonStorage<BuyerInvoice[]>('sfl_invoices', BUYER_INVOICES);
+  const savedSupplierInvoices = readJsonStorage<SupplierInvoice[] | null>('sfl_supplier_invoices', null);
   
-  const syncedSupplierInvoices = SUPPLIER_INVOICES.map(inv => {
+  const baseSupplierInvoices = savedSupplierInvoices ?? SUPPLIER_INVOICES;
+  const syncedSupplierInvoices = baseSupplierInvoices.map(inv => {
     const matchingBuyer = buyerInvoices.find(b => b.id === inv.id || b.invoiceNumber === inv.invoiceNumber);
     if (matchingBuyer && matchingBuyer.status === 'CONTESTED') {
       return { ...inv, status: 'DISPUTED' as const };
@@ -145,8 +149,48 @@ export function getSupplierDemoAnalyticsState(): SupplierAnalyticsState {
 }
 
 export function getInvestorDemoWorkspaceState(): InvestorWorkspaceState {
+  const supplierInvoices = readJsonStorage<SupplierInvoice[]>('sfl_supplier_invoices', SUPPLIER_INVOICES);
+  const marketplaceInvoices = supplierInvoices
+    .filter((invoice) => normalizeFundingStatus(invoice.fundingStatus) === 'LISTED')
+    .map((invoice): InvestorInvoice => ({
+      id: invoice.invoiceNumber ?? invoice.id,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber ?? invoice.id,
+      fundingOfferId: invoice.fundingOfferId ?? `demo-offer-${invoice.id}`,
+      financeabilityId: invoice.financeabilityId ?? `demo-financeability-${invoice.id}`,
+      obligor: invoice.buyer,
+      supplier: 'Smart Finux Labs',
+      logoType: 'tech',
+      faceValue: invoice.grossAmount ?? invoice.amount,
+      offeredAmount: invoice.offeredAmount ?? invoice.advanceAmount ?? invoice.amount * 0.9,
+      discount: (invoice.yieldApr ?? 0.12) * 100,
+      maturity: 60,
+      status: 'Available',
+      fundingStatus: 'LISTED',
+      invoiceStatus: invoice.status,
+      buyerRating: 'A',
+      buyerScore: 90,
+      poNumber: invoice.poNumber ?? `PO-${invoice.invoiceNumber ?? invoice.id}`,
+      poDate: invoice.issueDate ?? '',
+      grnWarehouse: invoice.goodsReceiptNumber ?? `GR-${invoice.invoiceNumber ?? invoice.id}`,
+      grnDate: invoice.dueDate ?? invoice.maturityDate,
+      signatureName: 'Verity Verified',
+      signatureDivision: 'Accounts Payable',
+      signatureDate: invoice.issueDate ?? '',
+      description: invoice.itemDescription ?? 'Supplier marketplace invoice',
+      verityScore: 92,
+      paymentDelinquency: 0,
+      avgDaysBeyondTerm: 0,
+      disputeRatio: 0,
+      retentionReleaseRate: 100,
+      marketCap: 'N/A',
+      spRating: 'A',
+      nyseSymbol: 'N/A',
+    }));
+
   return {
-    invoices: INVESTOR_INVOICES,
+    investorOrganizationId: 'demo-investor-capital',
+    invoices: [...marketplaceInvoices, ...INVESTOR_INVOICES],
     settlements: initialSettlements,
     ledgerRows: initialLedger,
     totalCommitted: 12450000.0,
@@ -209,6 +253,7 @@ export function getInvestorWorkspaceInitialState() {
   return isDemoWorkspaceDataMode()
     ? getInvestorDemoWorkspaceState()
     : {
+        investorOrganizationId: null,
         invoices: [],
         settlements: [],
         ledgerRows: [],
@@ -225,9 +270,33 @@ function normalizeSupplierApiInvoice(invoice: SupplierInvoice): SupplierInvoice 
     invoice_number?: string;
     issue_date?: string;
     due_date?: string;
+    financeability_id?: string;
+    funding_offer_id?: string;
+    funding_status?: string;
+    offered_amount?: number;
+    advance_amount?: number;
+    yield_apr?: number;
+    reserve_rate?: number;
+    marketplace_submitted_at?: string;
     metadata?: {
       invoiceNumber?: string;
       invoice_number?: string;
+      financeabilityId?: string;
+      financeability_id?: string;
+      fundingOfferId?: string;
+      funding_offer_id?: string;
+      fundingStatus?: string;
+      funding_status?: string;
+      offeredAmount?: number;
+      offered_amount?: number;
+      advanceAmount?: number;
+      advance_amount?: number;
+      yieldApr?: number;
+      yield_apr?: number;
+      reserveRate?: number;
+      reserve_rate?: number;
+      marketplaceSubmittedAt?: string;
+      marketplace_submitted_at?: string;
     };
   };
   const invoiceNumber =
@@ -242,6 +311,53 @@ function normalizeSupplierApiInvoice(invoice: SupplierInvoice): SupplierInvoice 
     issueDate: rawInvoice.issueDate ?? rawInvoice.issue_date,
     dueDate: rawInvoice.dueDate ?? rawInvoice.due_date,
     maturityDate: rawInvoice.maturityDate ?? rawInvoice.due_date ?? rawInvoice.dueDate,
+    financeabilityId: rawInvoice.financeabilityId ?? rawInvoice.financeability_id ?? rawInvoice.metadata?.financeabilityId ?? rawInvoice.metadata?.financeability_id,
+    fundingOfferId: rawInvoice.fundingOfferId ?? rawInvoice.funding_offer_id ?? rawInvoice.metadata?.fundingOfferId ?? rawInvoice.metadata?.funding_offer_id,
+    fundingStatus: normalizeFundingStatus(rawInvoice.fundingStatus ?? rawInvoice.funding_status ?? rawInvoice.metadata?.fundingStatus ?? rawInvoice.metadata?.funding_status),
+    offeredAmount: rawInvoice.offeredAmount ?? rawInvoice.offered_amount ?? rawInvoice.metadata?.offeredAmount ?? rawInvoice.metadata?.offered_amount,
+    advanceAmount: rawInvoice.advanceAmount ?? rawInvoice.advance_amount ?? rawInvoice.metadata?.advanceAmount ?? rawInvoice.metadata?.advance_amount,
+    yieldApr: rawInvoice.yieldApr ?? rawInvoice.yield_apr ?? rawInvoice.metadata?.yieldApr ?? rawInvoice.metadata?.yield_apr,
+    reserveRate: rawInvoice.reserveRate ?? rawInvoice.reserve_rate ?? rawInvoice.metadata?.reserveRate ?? rawInvoice.metadata?.reserve_rate,
+    marketplaceSubmittedAt:
+      rawInvoice.marketplaceSubmittedAt ??
+      rawInvoice.marketplace_submitted_at ??
+      rawInvoice.metadata?.marketplaceSubmittedAt ??
+      rawInvoice.metadata?.marketplace_submitted_at,
+  };
+}
+
+function normalizeInvestorApiInvoice(invoice: InvestorInvoice): InvestorInvoice {
+  const rawInvoice = invoice as InvestorInvoice & {
+    invoice_id?: string;
+    invoice_number?: string;
+    funding_offer_id?: string;
+    financeability_id?: string;
+    face_value?: number;
+    offered_amount?: number;
+    funding_status?: string;
+    buyer_rating?: string;
+    buyer_score?: number;
+    invoice_status?: string;
+    offer_status?: string;
+    expires_at?: string;
+    reserve_rate?: number;
+  };
+
+  return {
+    ...invoice,
+    invoiceId: rawInvoice.invoiceId ?? rawInvoice.invoice_id,
+    invoiceNumber: rawInvoice.invoiceNumber ?? rawInvoice.invoice_number ?? rawInvoice.id,
+    fundingOfferId: rawInvoice.fundingOfferId ?? rawInvoice.funding_offer_id,
+    financeabilityId: rawInvoice.financeabilityId ?? rawInvoice.financeability_id,
+    faceValue: rawInvoice.faceValue ?? rawInvoice.face_value,
+    offeredAmount: rawInvoice.offeredAmount ?? rawInvoice.offered_amount,
+    fundingStatus: normalizeFundingStatus(rawInvoice.fundingStatus ?? rawInvoice.funding_status ?? rawInvoice.offerStatus ?? rawInvoice.offer_status),
+    buyerRating: rawInvoice.buyerRating ?? rawInvoice.buyer_rating,
+    buyerScore: rawInvoice.buyerScore ?? rawInvoice.buyer_score,
+    invoiceStatus: rawInvoice.invoiceStatus ?? rawInvoice.invoice_status,
+    offerStatus: rawInvoice.offerStatus ?? rawInvoice.offer_status,
+    expiresAt: rawInvoice.expiresAt ?? rawInvoice.expires_at,
+    reserveRate: rawInvoice.reserveRate ?? rawInvoice.reserve_rate,
   };
 }
 
@@ -442,7 +558,8 @@ export async function loadInvestorWorkspaceState(
 
   const { data } = await verityApi.getInvestorWorkspaceState(requireApiToken(snapshot));
   return {
-    invoices: data?.invoices ?? [],
+    investorOrganizationId: data?.investorOrganizationId ?? null,
+    invoices: (data?.invoices ?? []).map(normalizeInvestorApiInvoice),
     settlements: data?.settlements ?? [],
     ledgerRows: data?.ledgerRows ?? [],
     totalCommitted: data?.totalCommitted ?? 0,
@@ -461,4 +578,12 @@ export function persistBuyerDemoWorkspaceState(state: BuyerWorkspaceState) {
   window.localStorage.setItem('sfl_invoices', JSON.stringify(state.invoices));
   window.localStorage.setItem('sfl_funding_requests', JSON.stringify(state.fundingRequests));
   window.localStorage.setItem('sfl_liquidity', JSON.stringify(state.liquidity));
+}
+
+export function persistSupplierDemoWorkspaceState(state: SupplierWorkspaceState) {
+  if (!isDemoWorkspaceDataMode()) {
+    return;
+  }
+
+  window.localStorage.setItem('sfl_supplier_invoices', JSON.stringify(state.invoices));
 }

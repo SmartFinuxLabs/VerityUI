@@ -25,6 +25,7 @@ import { CreditTrajectorySparkline } from './analytics/CreditTrajectorySparkline
 import { StatusBreakdownChart } from './analytics/StatusBreakdownChart';
 import { TimeTrendsChart } from './analytics/TimeTrendsChart';
 import { getInvoiceDisplayNumber } from '../../lib/invoiceDisplay';
+import { isActiveFundingStatus } from '../../lib/fundingStatusDisplay';
 
 interface DashboardViewProps {
   workspacePerspective: 'Supplier' | 'Investor';
@@ -85,6 +86,8 @@ export default function DashboardView({
         return 'bg-amber-100 text-amber-800 border-amber-200';
       case 'ACCEPTED':
         return 'bg-blue-100 text-[#0052CC] border-blue-200';
+      case 'FACTORING_REQUESTED':
+        return 'bg-sky-100 text-sky-800 border-sky-200';
       case 'FACTORED':
         return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'SETTLED':
@@ -105,7 +108,7 @@ export default function DashboardView({
     .filter((invoice) => invoice.status !== 'SETTLED')
     .reduce((total, invoice) => total + (invoice.grossAmount || invoice.amount), 0);
   const pendingFinancingVolume = invoices
-    .filter((invoice) => invoice.status === 'ACCEPTED')
+    .filter((invoice) => invoice.status === 'ACCEPTED' && !isActiveFundingStatus(invoice.fundingStatus))
     .reduce((total, invoice) => total + (invoice.grossAmount || invoice.amount), 0);
   const factoredVolume = invoices
     .filter((invoice) => invoice.status === 'FACTORED')
@@ -124,6 +127,7 @@ export default function DashboardView({
     {
       PENDING: 0,
       ACCEPTED: 0,
+      FACTORING_REQUESTED: 0,
       FACTORED: 0,
       SETTLED: 0,
       DISPUTED: 0,
@@ -139,6 +143,8 @@ export default function DashboardView({
         return 'bg-amber-500';
       case 'ACCEPTED':
         return 'bg-[#0052CC]';
+      case 'FACTORING_REQUESTED':
+        return 'bg-sky-500';
       case 'FACTORED':
         return 'bg-violet-500';
       case 'SETTLED':
@@ -633,6 +639,7 @@ export default function DashboardView({
                 <option value="ALL">All Statuses</option>
                 <option value="PENDING">Pending</option>
                 <option value="ACCEPTED">Accepted</option>
+                <option value="FACTORING_REQUESTED">Factoring Requested</option>
                 <option value="FACTORED">Factored</option>
                 <option value="SETTLED">Settled</option>
                 <option value="DISPUTED">Disputed</option>
@@ -714,7 +721,7 @@ export default function DashboardView({
 
                     {/* Context/Next Actions for Interactive Walkthrough flow */}
                     <td className="px-6 py-4 text-right">
-                      {invoice.status === 'ACCEPTED' ? (
+                      {invoice.status === 'ACCEPTED' && !isActiveFundingStatus(invoice.fundingStatus) ? (
                         <button
                           type="button"
                           onClick={() => onFocusInvoiceForFactoring(invoice.id)}
@@ -723,6 +730,11 @@ export default function DashboardView({
                           <span>Request Financing</span>
                           <ArrowRight className="w-3.5 h-3.5" />
                         </button>
+                      ) : (invoice.status === 'ACCEPTED' && isActiveFundingStatus(invoice.fundingStatus)) || invoice.status === 'FACTORING_REQUESTED' ? (
+                        <span className="text-[#0052CC] text-xs font-bold flex items-center justify-end gap-1 select-none">
+                          <Wallet className="w-3.5 h-3.5" />
+                          Marketplace Listed
+                        </span>
                       ) : invoice.status === 'DISPUTED' ? (
                         <button
                           type="button"

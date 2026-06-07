@@ -125,7 +125,7 @@ export const INITIAL_INVOICES: Invoice[] = [
     currency: 'USDC',
     issueDate: 'May 08, 2026',
     maturityDate: 'July 01, 2026',
-    status: 'VERIFIED',
+    status: 'FACTORED',
     poNumber: 'PO-2026-764',
     goodsReceiptNumber: 'GR-8815',
     lineItems: [
@@ -163,6 +163,9 @@ export const INITIAL_INVOICES: Invoice[] = [
       }
     ],
     internalNotes: 'Pre-approved due to automatic smart-contract matching rules.',
+    factoredAmount: 118200,
+    discountAmount: 1800,
+    paymentStatus: 'FINANCED',
   },
   {
     id: 'INV-2023-8901',
@@ -221,7 +224,7 @@ export const INITIAL_INVOICES: Invoice[] = [
     currency: 'USDC',
     issueDate: 'Sep 18, 2024',
     maturityDate: 'Oct 18, 2024',
-    status: 'VERIFIED',
+    status: 'SETTLED',
     poNumber: 'PO-2023-015',
     goodsReceiptNumber: 'GR-5531',
     lineItems: [
@@ -240,6 +243,9 @@ export const INITIAL_INVOICES: Invoice[] = [
         detail: 'Verified',
       }
     ],
+    paidAt: '2026-05-29T18:00:00.000Z',
+    settledAt: '2026-05-29T18:00:00.000Z',
+    paymentStatus: 'PAID',
   },
   {
     id: 'SL-2023-09',

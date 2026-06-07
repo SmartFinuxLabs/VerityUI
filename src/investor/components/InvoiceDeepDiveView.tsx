@@ -28,12 +28,14 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { Invoice, Settlement, ActiveScreen } from '../types';
+import { getFundingStatusDisplay } from '../../lib/fundingStatusDisplay';
+import { getInvoiceStatusDisplay } from '../../lib/invoiceStatusDisplay';
 
 interface InvoiceDeepDiveViewProps {
   onNavigate: (screen: ActiveScreen) => void;
   selectedInvoice: Invoice | null;
   availableCapital: number;
-  onFundInvoice: (invoiceId: string, amount: number) => void;
+  onFundInvoice: (invoiceId: string, amount: number) => void | Promise<void>;
   onTriggerSuccess: (title: string, amount: string | number, hash: string, details: Record<string, string>) => void;
   onBack: () => void;
 }
@@ -73,6 +75,8 @@ export default function InvoiceDeepDiveView({
   const advanceAmount = faceValue * 0.9;
   const retention = faceValue * 0.1;
   const expectedYield = faceValue * (inv.discount / 100);
+  const fundingStatusDisplay = getFundingStatusDisplay(inv.fundingStatus);
+  const invoiceStatusDisplay = getInvoiceStatusDisplay(inv.invoiceStatus ?? inv.status);
 
   const handleCopy = (hash: string) => {
     navigator.clipboard.writeText(hash);
@@ -80,7 +84,7 @@ export default function InvoiceDeepDiveView({
     setTimeout(() => setCopiedHash(null), 2000);
   };
 
-  const handleFundConfirmation = () => {
+  const handleFundConfirmation = async () => {
     // Check if enough available capital
     if (availableCapital < advanceAmount) {
       alert(`Insufficient Available Capital ($${availableCapital.toLocaleString()}) to resource the advance requirement ($${advanceAmount.toLocaleString()}) of this invoice. Please bridge liquidity inside the 'Liquidity & Marketplace' dashboard first.`);
@@ -88,7 +92,12 @@ export default function InvoiceDeepDiveView({
       return;
     }
 
-    onFundInvoice(inv.id, advanceAmount);
+    try {
+      await onFundInvoice(inv.id, advanceAmount);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Investor funding failed.');
+      return;
+    }
 
     const txHash = '0xfund' + Array.from({ length: 40 }, () => 
       Math.floor(Math.random() * 16).toString(16)
@@ -139,6 +148,20 @@ export default function InvoiceDeepDiveView({
             <CheckCircle2 className="w-3 h-3 text-emerald-500" />
             <span>VERIFIED ASSET</span>
           </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Invoice Status</p>
+          <p className="mt-1 text-sm font-extrabold text-slate-900">{invoiceStatusDisplay.label}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Funding Status</p>
+          <span className={`mt-1 inline-flex rounded-[6px] border px-2.5 py-1 text-[11px] font-bold ${fundingStatusDisplay.className}`}>
+            {fundingStatusDisplay.label}
+          </span>
+          {inv.fundingOfferId && <p className="mt-1 font-mono text-[10px] text-slate-400">{inv.fundingOfferId}</p>}
         </div>
       </div>
 

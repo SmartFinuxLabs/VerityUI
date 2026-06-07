@@ -69,9 +69,21 @@ describe('supplier FactoringView component functions', () => {
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2000);
+      await Promise.resolve();
     });
 
-    expect(onSubmitFactoringBatch).toHaveBeenCalledWith(['INV-002'], 180);
+    expect(onSubmitFactoringBatch).toHaveBeenCalledWith(
+      ['INV-002'],
+      180,
+      expect.objectContaining({
+        selectedTotalAmount: 200,
+        advanceRate: 0.9,
+        estimatedAdvance: 180,
+        platformFee: 1,
+        reserveRate: 0.1,
+        settlementCurrency: 'USDC',
+      })
+    );
     expect(screen.getByText(/Financing Request Submitted/i)).toBeInTheDocument();
 
     await act(async () => {
@@ -113,5 +125,41 @@ describe('supplier FactoringView component functions', () => {
     expect(within(table).getByRole('columnheader', { name: /Invoice Number/i })).toBeInTheDocument();
     expect(within(table).getByText('INV-SUP-001')).toBeInTheDocument();
     expect(within(table).queryByText(/Invoice ID/i)).not.toBeInTheDocument();
+  });
+
+  it('excludes accepted invoices already listed on the funding marketplace', () => {
+    render(
+      <FactoringView
+        invoices={[
+          {
+            id: 'INV-LISTED',
+            invoiceNumber: 'INV-LISTED-001',
+            buyer: 'Listed Buyer',
+            amount: 500,
+            maturityDate: '2026-08-01',
+            status: 'ACCEPTED',
+            fundingStatus: 'LISTED',
+            fundingOfferId: 'offer-listed-1',
+          },
+          {
+            id: 'INV-AVAILABLE',
+            invoiceNumber: 'INV-AVAILABLE-001',
+            buyer: 'Available Buyer',
+            amount: 700,
+            maturityDate: '2026-08-15',
+            status: 'ACCEPTED',
+            fundingStatus: 'NOT_LISTED',
+          },
+        ]}
+        onSelectRoute={vi.fn()}
+        onSubmitFactoringBatch={vi.fn()}
+        preselectedInvoiceId={null}
+      />
+    );
+
+    const table = screen.getByRole('table');
+    expect(within(table).queryByText('INV-LISTED-001')).not.toBeInTheDocument();
+    expect(within(table).getByText('INV-AVAILABLE-001')).toBeInTheDocument();
+    expect(screen.getByText('1 Invoices selected')).toBeInTheDocument();
   });
 });
