@@ -145,7 +145,7 @@ export default function App() {
           {accessSnapshot && (
             <>
               <span className="hidden lg:inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-zinc-600 bg-zinc-100 border border-zinc-200 px-2.5 py-1 rounded-sm">
-                {accessSnapshot.provider === 'api' ? 'API Access' : 'Demo Access'}
+                API Access
                 <span className="text-zinc-400">{accessSnapshot.email}</span>
               </span>
               {accessSnapshot.participantRole && (
@@ -254,7 +254,7 @@ export default function App() {
         element={(
           <AuthGate>
             <SupplierWorkspace
-              accessLabel={accessSnapshot ? `${accessSnapshot.provider === 'api' ? 'API Access' : 'Demo Access'} · ${accessSnapshot.email}` : undefined}
+              accessLabel={accessSnapshot ? `API Access · ${accessSnapshot.email}` : undefined}
               accessRole={accessSnapshot?.participantRole}
               onResetAccess={accessSnapshot ? handleResetAccess : undefined}
             />
@@ -266,7 +266,7 @@ export default function App() {
         element={(
           <AuthGate>
             <BuyerWorkspace
-              accessLabel={accessSnapshot ? `${accessSnapshot.provider === 'api' ? 'API Access' : 'Demo Access'} · ${accessSnapshot.email}` : undefined}
+              accessLabel={accessSnapshot ? `API Access · ${accessSnapshot.email}` : undefined}
               accessRole={accessSnapshot?.participantRole}
               onResetAccess={accessSnapshot ? handleResetAccess : undefined}
             />
@@ -278,7 +278,7 @@ export default function App() {
         element={(
           <AuthGate>
             <InvestorWorkspace
-              accessLabel={accessSnapshot ? `${accessSnapshot.provider === 'api' ? 'API Access' : 'Demo Access'} · ${accessSnapshot.email}` : undefined}
+              accessLabel={accessSnapshot ? `API Access · ${accessSnapshot.email}` : undefined}
               accessRole={accessSnapshot?.participantRole}
               onResetAccess={accessSnapshot ? handleResetAccess : undefined}
             />

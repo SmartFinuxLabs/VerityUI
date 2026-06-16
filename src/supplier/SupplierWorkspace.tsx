@@ -4,14 +4,11 @@ import { getParticipantAccessSnapshot } from '../lib/participantAuth';
 import {
   getSupplierAnalyticsInitialState,
   getSupplierWorkspaceInitialState,
-  isDemoWorkspaceDataMode,
   loadSupplierAnalytics,
   loadSupplierWorkspaceState,
-  persistSupplierDemoWorkspaceState,
   type SupplierAnalyticsState,
 } from '../lib/workspaceData';
 import { verityApi } from '../lib/apiClient';
-import { INITIAL_INVOICES } from './data';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import DashboardView from './components/DashboardView';
@@ -65,14 +62,10 @@ export default function SupplierWorkspace({
   const [preselectedInvoiceId, setPreselectedInvoiceId] = useState<string | null>(null);
   const [readOnlyInvoiceId, setReadOnlyInvoiceId] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
-  const [workspaceDataStatus, setWorkspaceDataStatus] = useState<'loading' | 'ready' | 'error'>(
-    isDemoWorkspaceDataMode() ? 'ready' : 'loading'
-  );
+  const [workspaceDataStatus, setWorkspaceDataStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [workspaceDataError, setWorkspaceDataError] = useState('');
   const [analytics, setAnalytics] = useState<SupplierAnalyticsState>(initialAnalyticsState);
-  const [analyticsStatus, setAnalyticsStatus] = useState<'loading' | 'ready' | 'error'>(
-    isDemoWorkspaceDataMode() ? 'ready' : 'loading'
-  );
+  const [analyticsStatus, setAnalyticsStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   const handleRouteChange = async (route: MainRoute) => {
     if (route === 'invoice-queue' || route === 'dashboard') {
@@ -150,85 +143,65 @@ export default function SupplierWorkspace({
   };
 
   const handleAddInvoice = async (newInvoice: Omit<Invoice, 'status'>) => {
-    const fullInvoice: Invoice = {
-      ...newInvoice,
-      status: 'ACCEPTED',
-      lifecycleTimeline: {
-        registered:
-          new Date().toLocaleDateString() +
-          ' • ' +
-          new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        approved:
-          new Date().toLocaleDateString() +
-          ' • ' +
-          new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      },
-    };
+    const snapshot = getParticipantAccessSnapshot();
 
-    if (!isDemoWorkspaceDataMode()) {
-      const snapshot = getParticipantAccessSnapshot();
-
-      if (snapshot?.provider !== 'api' || !snapshot.accessToken) {
-        throw new Error('API supplier invoice creation requires a signed-in VerityAPI session.');
-      }
-
-      const activeSupplierOrganizationId = supplierOrganizationIdRef.current ?? supplierOrganizationId;
-
-      if (!activeSupplierOrganizationId) {
-        throw new Error('Register a supplier organization before submitting an MVP invoice.');
-      }
-
-      if (!newInvoice.buyerId) {
-        throw new Error('Select a registered buyer before submitting an MVP invoice.');
-      }
-
-      const now = new Date();
-      const invoiceNumber = newInvoice.invoiceNumber ?? newInvoice.id;
-      const issueDate = toApiDate(newInvoice.issueDate ?? '', now);
-      const dueDate = toApiDate(newInvoice.dueDate ?? newInvoice.maturityDate, new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000));
-      const supplierDisplayName = snapshot.entityName?.trim();
-
-      await verityApi.createInvoice(snapshot.accessToken, {
-        supplierId: activeSupplierOrganizationId,
-        buyerId: newInvoice.buyerId,
-        invoiceNumber,
-        issueDate,
-        dueDate,
-        currency: 'USDC',
-        grossAmount: newInvoice.amount,
-        acceptedAmount: newInvoice.amount,
-        sourceSystemReference: `VERITYUI-${invoiceNumber}`,
-        metadata: {
-          buyerName: newInvoice.buyer,
-          supplierId: activeSupplierOrganizationId,
-          ...(supplierDisplayName ? { supplierName: supplierDisplayName } : {}),
-          itemDescription: newInvoice.itemDescription,
-          originalQty: newInvoice.originalQty,
-          unitPrice: newInvoice.unitPrice,
-          poNumber: newInvoice.poNumber ?? `PO-${invoiceNumber}`,
-          goodsReceiptNumber: newInvoice.goodsReceiptNumber ?? `GR-${invoiceNumber}`,
-          walletAddress,
-          lineItems: newInvoice.lineItems ? newInvoice.lineItems.map(item => ({
-            description: item.description,
-            qty: item.quantity || item.qty,
-            unitPrice: item.price || item.unitPrice,
-            total: (item.quantity || item.qty) * (item.price || item.unitPrice),
-            taxPercent: item.taxPercent
-          })) : [
-            {
-              description: newInvoice.itemDescription ?? `Invoice ${newInvoice.id}`,
-              qty: newInvoice.originalQty ?? 1,
-              unitPrice: newInvoice.unitPrice ?? newInvoice.amount,
-              total: newInvoice.amount,
-            },
-          ],
-        },
-      });
-      await refreshSupplierWorkspace();
-      return;
+    if (snapshot?.provider !== 'api' || !snapshot.accessToken) {
+      throw new Error('API supplier invoice creation requires a signed-in VerityAPI session.');
     }
 
-    setInvoices((prevInvoices) => [fullInvoice, ...prevInvoices]);
+    const activeSupplierOrganizationId = supplierOrganizationIdRef.current ?? supplierOrganizationId;
+
+    if (!activeSupplierOrganizationId) {
+      throw new Error('Register a supplier organization before submitting an MVP invoice.');
+    }
+
+    if (!newInvoice.buyerId) {
+      throw new Error('Select a registered buyer before submitting an MVP invoice.');
+    }
+
+    const now = new Date();
+    const invoiceNumber = newInvoice.invoiceNumber ?? newInvoice.id;
+    const issueDate = toApiDate(newInvoice.issueDate ?? '', now);
+    const dueDate = toApiDate(newInvoice.dueDate ?? newInvoice.maturityDate, new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000));
+    const supplierDisplayName = snapshot.entityName?.trim();
+
+    await verityApi.createInvoice(snapshot.accessToken, {
+      supplierId: activeSupplierOrganizationId,
+      buyerId: newInvoice.buyerId,
+      invoiceNumber,
+      issueDate,
+      dueDate,
+      currency: 'USDC',
+      grossAmount: newInvoice.amount,
+      acceptedAmount: newInvoice.amount,
+      sourceSystemReference: `VERITYUI-${invoiceNumber}`,
+      metadata: {
+        buyerName: newInvoice.buyer,
+        supplierId: activeSupplierOrganizationId,
+        ...(supplierDisplayName ? { supplierName: supplierDisplayName } : {}),
+        itemDescription: newInvoice.itemDescription,
+        originalQty: newInvoice.originalQty,
+        unitPrice: newInvoice.unitPrice,
+        poNumber: newInvoice.poNumber ?? `PO-${invoiceNumber}`,
+        goodsReceiptNumber: newInvoice.goodsReceiptNumber ?? `GR-${invoiceNumber}`,
+        walletAddress,
+        lineItems: newInvoice.lineItems ? newInvoice.lineItems.map(item => ({
+          description: item.description,
+          qty: item.quantity || item.qty,
+          unitPrice: item.price || item.unitPrice,
+          total: (item.quantity || item.qty) * (item.price || item.unitPrice),
+          taxPercent: item.taxPercent
+        })) : [
+          {
+            description: newInvoice.itemDescription ?? `Invoice ${newInvoice.id}`,
+            qty: newInvoice.originalQty ?? 1,
+            unitPrice: newInvoice.unitPrice ?? newInvoice.amount,
+            total: newInvoice.amount,
+          },
+        ],
+      },
+    });
+    await refreshSupplierWorkspace();
   };
 
   const handleSubmitFactoringBatch = async (
@@ -238,66 +211,25 @@ export default function SupplierWorkspace({
   ) => {
     const focusInvoiceId = invoiceIds[0] ?? null;
 
-    if (!isDemoWorkspaceDataMode()) {
-      const snapshot = getParticipantAccessSnapshot();
+    const snapshot = getParticipantAccessSnapshot();
 
-      if (snapshot?.provider !== 'api' || !snapshot.accessToken) {
-        throw new Error('API supplier marketplace submission requires a signed-in VerityAPI session.');
-      }
-
-      await Promise.all(
-        invoiceIds.map((invoiceId) =>
-          verityApi.submitInvoiceToMarketplace(snapshot.accessToken, invoiceId, {
-            offeredAmount: terms?.estimatedAdvance ?? totalAdvance,
-            yieldApr: terms?.yieldApr ?? 0.12,
-            reserveRate: terms?.reserveRate ?? 0.1,
-            settlementCurrency: terms?.settlementCurrency ?? 'USDC',
-            expiresAt: terms?.expiresAt ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          })
-        )
-      );
-
-      await refreshSupplierWorkspace();
-      setPreselectedInvoiceId(focusInvoiceId);
-      return;
+    if (snapshot?.provider !== 'api' || !snapshot.accessToken) {
+      throw new Error('API supplier marketplace submission requires a signed-in VerityAPI session.');
     }
 
-    setInvoices((prevInvoices) => {
-      const nextInvoices = prevInvoices.map((inv) => {
-        if (invoiceIds.includes(inv.id)) {
-          return {
-            ...inv,
-            fundingStatus: 'LISTED' as const,
-            fundingOfferId: inv.fundingOfferId ?? `demo-offer-${inv.id}`,
-            financeabilityId: inv.financeabilityId ?? `demo-financeability-${inv.id}`,
-            offeredAmount: terms?.estimatedAdvance ?? totalAdvance,
-            advanceAmount: terms?.estimatedAdvance ?? totalAdvance,
-            yieldApr: terms?.yieldApr ?? 0.12,
-            reserveRate: terms?.reserveRate ?? 0.1,
-            marketplaceSubmittedAt: new Date().toISOString(),
-          };
-        }
+    await Promise.all(
+      invoiceIds.map((invoiceId) =>
+        verityApi.submitInvoiceToMarketplace(snapshot.accessToken, invoiceId, {
+          offeredAmount: terms?.estimatedAdvance ?? totalAdvance,
+          yieldApr: terms?.yieldApr ?? 0.12,
+          reserveRate: terms?.reserveRate ?? 0.1,
+          settlementCurrency: terms?.settlementCurrency ?? 'USDC',
+          expiresAt: terms?.expiresAt ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        })
+      )
+    );
 
-        return inv;
-      });
-
-      persistSupplierDemoWorkspaceState({
-        supplierOrganizationId,
-        invoices: nextInvoices,
-        registeredBuyers,
-        availableLiquidity: availableLiquidity + totalAdvance,
-        escrowValue: escrowValue + totalAdvance,
-        onChainCredit: Math.min(850, onChainCredit + 15),
-        walletConnected,
-        walletAddress,
-      });
-
-      return nextInvoices;
-    });
-
-    setEscrowValue((prev) => prev + totalAdvance);
-    setAvailableLiquidity((prev) => prev + totalAdvance);
-    setOnChainCredit((prev) => Math.min(850, prev + 15));
+    await refreshSupplierWorkspace();
     setPreselectedInvoiceId(focusInvoiceId);
   };
 
@@ -311,22 +243,18 @@ export default function SupplierWorkspace({
       rebuttalDetail?: string;
     }
   ) => {
-    if (!isDemoWorkspaceDataMode()) {
-      try {
-        const snapshot = getParticipantAccessSnapshot();
-        if (snapshot?.provider === 'api' && snapshot.accessToken) {
-          const decisionState = params.status === 'ACCEPTED' ? 'ACCEPTED' : 'HELD';
-          await verityApi.createInvoiceResolution(snapshot.accessToken, invoiceId, {
-            decisionState: decisionState,
-            decisionReason: params.rebuttalDetail ?? params.rebuttalCounterReason ?? 'Rebuttal filed',
-            reasonCode: params.rebuttalCounterReason ?? 'REBUTTAL',
-            acceptedAmount: params.amount ?? 0
-          });
-        }
-      } catch (err) {
-        console.error('Failed to persist rebuttal to database:', err);
-      }
+    const snapshot = getParticipantAccessSnapshot();
+    if (snapshot?.provider !== 'api' || !snapshot.accessToken) {
+      throw new Error('API supplier dispute resolution requires a signed-in VerityAPI session.');
     }
+
+    const decisionState = params.status === 'ACCEPTED' ? 'ACCEPTED' : 'HELD';
+    await verityApi.createInvoiceResolution(snapshot.accessToken, invoiceId, {
+      decisionState: decisionState,
+      decisionReason: params.rebuttalDetail ?? params.rebuttalCounterReason ?? 'Rebuttal filed',
+      reasonCode: params.rebuttalCounterReason ?? 'REBUTTAL',
+      acceptedAmount: params.amount ?? 0
+    });
 
     setInvoices((prevInvoices) =>
       prevInvoices.map((inv) => {
@@ -396,12 +324,12 @@ export default function SupplierWorkspace({
 
   const getDisputeInvoice = () => {
     const matched = invoices.find((inv) => inv.id === preselectedInvoiceId || inv.status === 'DISPUTED');
-    return matched || invoices.find((inv) => inv.invoiceNumber === 'INV-2026-089') || invoices[4] || INITIAL_INVOICES.find(inv => inv.status === 'DISPUTED');
+    return matched || invoices.find((inv) => inv.invoiceNumber === 'INV-2026-089') || invoices[4];
   };
 
   const getSettlementInvoice = () => {
     const matched = invoices.find((inv) => inv.id === preselectedInvoiceId || inv.status === 'FACTORED');
-    return matched || invoices.find((inv) => inv.invoiceNumber === 'INV-2026-089') || invoices[4] || INITIAL_INVOICES.find(inv => inv.status === 'FACTORED');
+    return matched || invoices.find((inv) => inv.invoiceNumber === 'INV-2026-089') || invoices[4];
   };
 
   const EmptyActionState = ({

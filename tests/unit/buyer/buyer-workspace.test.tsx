@@ -1,7 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import BuyerWorkspace from '../../../src/buyer/BuyerWorkspace';
+import { INITIAL_FUNDING_REQUESTS, INITIAL_INVOICES, INITIAL_LIQUIDITY } from '../../../src/buyer/data';
+import { storeApiSession } from '../../../src/lib/participantAuth';
 
 async function importBuyerApiWorkspace() {
   vi.stubEnv('VITE_RUN_MODE', 'api');
@@ -16,10 +18,37 @@ async function importBuyerApiWorkspace() {
 }
 
 describe('BuyerWorkspace module', () => {
+  beforeEach(() => {
+    storeApiSession({
+      user: { id: 'buyer-user-1', email: 'buyer@test.local', userMetadata: { participantRole: 'Buyer' } },
+      accessToken: 'buyer-token',
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({
+          data: {
+            invoices: INITIAL_INVOICES,
+            fundingRequests: INITIAL_FUNDING_REQUESTS,
+            liquidity: INITIAL_LIQUIDITY,
+          },
+        }),
+      })
+    );
+  });
+
   it('renders buyer-specific header, sidebar action, and dashboard content', () => {
     render(<BuyerWorkspace accessLabel="API Access · buyer@test.local" accessRole="Buyer" />);
 
-    expect(screen.getAllByText(/Buyer Dashboard/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Loading buyer workspace data/i)).toBeInTheDocument();
+  });
+
+  it('renders loaded buyer-specific header, sidebar action, and dashboard content', async () => {
+    render(<BuyerWorkspace accessLabel="API Access · buyer@test.local" accessRole="Buyer" />);
+
+    expect((await screen.findAllByText(/Buyer Dashboard/i)).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /New Funding Request/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Search invoices, suppliers, or hashes/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Factoring Exposure/i).length).toBeGreaterThan(0);
@@ -33,7 +62,7 @@ describe('BuyerWorkspace module', () => {
     const user = userEvent.setup();
     render(<BuyerWorkspace accessRole="Buyer" />);
 
-    await user.click(screen.getByRole('button', { name: /Invoices Queue/i }));
+    await user.click(await screen.findByRole('button', { name: /Invoices Queue/i }));
 
     expect(screen.getAllByText(/Invoices Queue/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Verify and authorize incoming peer-to-peer invoice assets/i)).toBeInTheDocument();

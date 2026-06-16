@@ -4,7 +4,7 @@ export type ParticipantRole = 'Supplier' | 'Buyer' | 'Investor';
 export type PartyType = 'SUPPLIER' | 'BUYER' | 'INVESTOR';
 
 export interface ParticipantAccessSnapshot {
-  provider: 'api' | 'demo';
+  provider: 'api';
   email: string;
   participantRole?: ParticipantRole;
   entityName?: string;
@@ -104,17 +104,6 @@ export function storeApiSession(
   writeStorageValue(JSON.stringify(snapshot));
 }
 
-export function storeDemoAccess(email: string, options?: { participantRole?: ParticipantRole; entityName?: string }) {
-  const snapshot: ParticipantAccessSnapshot = {
-    provider: 'demo',
-    email,
-    participantRole: options?.participantRole,
-    entityName: options?.entityName,
-  };
-
-  writeStorageValue(JSON.stringify(snapshot));
-}
-
 export function getParticipantAccessSnapshot() {
   const rawValue = readStorageValue();
 
@@ -123,14 +112,20 @@ export function getParticipantAccessSnapshot() {
   }
 
   try {
-    return JSON.parse(rawValue) as ParticipantAccessSnapshot;
+    const snapshot = JSON.parse(rawValue) as Partial<ParticipantAccessSnapshot> & { provider?: unknown };
+    if (snapshot.provider !== 'api' || typeof snapshot.accessToken !== 'string' || snapshot.accessToken.trim().length === 0) {
+      removeStorageValue();
+      return null;
+    }
+
+    return snapshot as ParticipantAccessSnapshot;
   } catch {
     return null;
   }
 }
 
 export function hasParticipantAccess() {
-  return Boolean(getParticipantAccessSnapshot());
+  return Boolean(getParticipantAccessSnapshot()?.accessToken);
 }
 
 export function clearParticipantAccess() {

@@ -80,7 +80,7 @@ describe('verityApi client functions', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
 
     await expect(verityApi.signIn({ email: 'supplier@test.local', password: 'secret' })).rejects.toThrow(
-      'Unable to reach VerityAPI at http://localhost:8080/api/v1. Start VerityAPI or set VITE_RUN_MODE=demo for local demo login.'
+      'Unable to reach VerityAPI at http://localhost:8080/api/v1. Start VerityAPI or configure VITE_API_BASE_URL for this environment.'
     );
   });
 

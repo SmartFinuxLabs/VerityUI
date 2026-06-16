@@ -1,7 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import InvestorWorkspace from '../../../src/investor/InvestorWorkspace';
+import { initialInvoices, initialLedger, initialSettlements } from '../../../src/investor/data';
+import { storeApiSession } from '../../../src/lib/participantAuth';
 
 async function importInvestorApiWorkspace() {
   vi.stubEnv('VITE_RUN_MODE', 'api');
@@ -26,10 +28,32 @@ function mockFetchJson(status: number, body: unknown) {
 }
 
 describe('InvestorWorkspace module', () => {
-  it('renders investor-specific shell and direct funding metrics', () => {
+  beforeEach(() => {
+    storeApiSession({
+      user: { id: 'investor-user-1', email: 'investor@test.local', userMetadata: { participantRole: 'Investor' } },
+      accessToken: 'investor-token',
+    });
+    vi.stubGlobal(
+      'fetch',
+      mockFetchJson(200, {
+        data: {
+          invoices: initialInvoices,
+          settlements: initialSettlements,
+          ledgerRows: initialLedger,
+          totalCommitted: 12450000,
+          activeInvestments: 8124550,
+          availableCapital: 4325450,
+          projectedYield: 8.45,
+          ytdEarned: 156250,
+        },
+      })
+    );
+  });
+
+  it('renders investor-specific shell and direct funding metrics', async () => {
     render(<InvestorWorkspace accessLabel="API Access · investor@test.local" accessRole="Investor" />);
 
-    expect(screen.getByText(/Prime Network Node/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Prime Network Node/i)).toBeInTheDocument();
     expect(screen.getByText(/Total Committed/i)).toBeInTheDocument();
     expect(screen.getByText('Verity Institutional')).toBeInTheDocument();
   });
@@ -38,7 +62,7 @@ describe('InvestorWorkspace module', () => {
     const user = userEvent.setup();
     render(<InvestorWorkspace accessRole="Investor" />);
 
-    await user.click(screen.getByRole('button', { name: /Portfolio Analytics/i }));
+    await user.click(await screen.findByRole('button', { name: /Portfolio Analytics/i }));
 
     expect(screen.getAllByText(/Portfolio Analytics/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Portfolio Health Score/i)).toBeInTheDocument();

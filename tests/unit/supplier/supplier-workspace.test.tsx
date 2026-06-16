@@ -1,7 +1,8 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { storeApiSession } from '../../../src/lib/participantAuth';
+import { INITIAL_INVOICES } from '../../../src/supplier/data';
 import SupplierWorkspace from '../../../src/supplier/SupplierWorkspace';
 
 async function importSupplierApiWorkspace() {
@@ -54,18 +55,57 @@ function supplierWorkspaceBody(overrides: Record<string, unknown> = {}) {
 }
 
 describe('SupplierWorkspace module', () => {
-  it('renders supplier-specific shell and dashboard context', () => {
-    render(<SupplierWorkspace accessLabel="Demo Access · supplier@test.local" accessRole="Supplier" />);
+  beforeEach(() => {
+    storeSupplierApiSession();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        if (url.includes('/workspaces/supplier/analytics')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: vi.fn().mockResolvedValue({
+              data: {
+                volumeByStatus: [
+                  { status: 'PENDING', count: 2, totalAmount: 35000 },
+                  { status: 'ACCEPTED', count: 3, totalAmount: 75000 },
+                ],
+                timeTrends: [],
+                cashFlowProjections: [],
+                financialHealth: {
+                  disputeRatio: 0.05,
+                  onChainCreditScore: 820,
+                  totalOutstanding: 160000,
+                  totalFactored: 50000,
+                  liquidityRatio: 0.31,
+                },
+                creditHistory: [],
+              },
+            }),
+          });
+        }
 
-    expect(screen.getAllByText(/Supplier Overview/i).length).toBeGreaterThan(0);
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: vi.fn().mockResolvedValue(supplierWorkspaceBody({ invoices: INITIAL_INVOICES })),
+        });
+      })
+    );
+  });
+
+  it('renders supplier-specific shell and dashboard context', async () => {
+    render(<SupplierWorkspace accessLabel="API Access · supplier@test.local" accessRole="Supplier" />);
+
+    expect((await screen.findAllByText(/Supplier Overview/i)).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /New Funding Request/i })).toBeInTheDocument();
     expect(screen.getByText(/Finux-Vault-01/i)).toBeInTheDocument();
   });
 
-  it('renders supplier dashboard analytics while preserving VerityUI theme labels', () => {
+  it('renders supplier dashboard analytics while preserving VerityUI theme labels', async () => {
     render(<SupplierWorkspace accessRole="Supplier" />);
 
-    expect(screen.getByRole('heading', { name: /Supplier Overview/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Supplier Overview/i })).toBeInTheDocument();
     expect(screen.getByText(/Total Outstanding Volume/i)).toBeInTheDocument();
     expect(screen.getByText(/Pending Financing/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Cash Flow Projection/i).length).toBeGreaterThan(0);
@@ -78,7 +118,7 @@ describe('SupplierWorkspace module', () => {
     const user = userEvent.setup();
     render(<SupplierWorkspace accessRole="Supplier" />);
 
-    await user.click(screen.getByRole('button', { name: /^Factoring/i }));
+    await user.click(await screen.findByRole('button', { name: /^Factoring/i }));
 
     expect(screen.getAllByText(/Request Factoring/i).length).toBeGreaterThan(0);
   });
@@ -87,7 +127,7 @@ describe('SupplierWorkspace module', () => {
     const user = userEvent.setup();
     render(<SupplierWorkspace accessRole="Supplier" />);
 
-    await user.click(screen.getByRole('button', { name: /Invoice Queue/i }));
+    await user.click(await screen.findByRole('button', { name: /Invoice Queue/i }));
 
     expect(screen.getByRole('heading', { name: /Supplier Invoice Queue/i })).toBeInTheDocument();
     expect(screen.getByText(/Manage submitted invoices, buyer status, and financing readiness/i)).toBeInTheDocument();
@@ -99,7 +139,7 @@ describe('SupplierWorkspace module', () => {
     const user = userEvent.setup();
     render(<SupplierWorkspace accessRole="Supplier" />);
 
-    await user.click(screen.getByRole('button', { name: /Invoice Queue/i }));
+    await user.click(await screen.findByRole('button', { name: /Invoice Queue/i }));
 
     const table = screen.getByRole('table');
     expect(within(table).getByRole('columnheader', { name: /Invoice Number/i })).toBeInTheDocument();
@@ -119,7 +159,7 @@ describe('SupplierWorkspace module', () => {
     const user = userEvent.setup();
     render(<SupplierWorkspace accessRole="Supplier" />);
 
-    await user.click(screen.getByRole('button', { name: /Disputes/i }));
+    await user.click(await screen.findByRole('button', { name: /Disputes/i }));
 
     const table = screen.getByRole('table');
     expect(within(table).getByRole('columnheader', { name: /Invoice Number/i })).toBeInTheDocument();

@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 
 import { ActiveScreen, Invoice, Settlement, LedgerRow, WalletState } from './types';
-import { getInvestorWorkspaceInitialState, isDemoWorkspaceDataMode, loadInvestorWorkspaceState } from '../lib/workspaceData';
+import { getInvestorWorkspaceInitialState, loadInvestorWorkspaceState } from '../lib/workspaceData';
 import { getParticipantAccessSnapshot } from '../lib/participantAuth';
 import { verityApi } from '../lib/apiClient';
 
@@ -73,9 +73,7 @@ export default function InvestorWorkspace({
   const [invoices, setInvoices] = useState<Invoice[]>(initialWorkspaceState.invoices);
   const [settlements, setSettlements] = useState<Settlement[]>(initialWorkspaceState.settlements);
   const [ledgerRows, setLedgerRows] = useState<LedgerRow[]>(initialWorkspaceState.ledgerRows);
-  const [workspaceDataStatus, setWorkspaceDataStatus] = useState<'loading' | 'ready' | 'error'>(
-    isDemoWorkspaceDataMode() ? 'ready' : 'loading'
-  );
+  const [workspaceDataStatus, setWorkspaceDataStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [workspaceDataError, setWorkspaceDataError] = useState('');
 
   // Notifications State
@@ -193,81 +191,28 @@ export default function InvestorWorkspace({
     // Locate invoice in list
     const invItem = invoices.find(inv => inv.id === invoiceId);
 
-    if (!isDemoWorkspaceDataMode()) {
-      const snapshot = getParticipantAccessSnapshot();
-      if (snapshot?.provider !== 'api' || !snapshot.accessToken) {
-        throw new Error('API investor funding requires a signed-in VerityAPI session.');
-      }
-      if (!investorOrganizationId) {
-        throw new Error('Investor organization is required before funding marketplace invoices.');
-      }
-      if (!invItem?.fundingOfferId) {
-        throw new Error('Funding offer ID is required before funding marketplace invoices.');
-      }
-
-      await verityApi.createFundingCommitment(snapshot.accessToken, invItem.fundingOfferId, {
-        investorId: investorOrganizationId,
-        committedAmount: advanceAmt,
-        offeredRate: invItem.discount / 100,
-        commitmentTxRef: `VERITYUI-${invItem.fundingOfferId}-${Date.now()}`,
-      });
-      await refreshInvestorWorkspace();
-      return;
+    const snapshot = getParticipantAccessSnapshot();
+    if (snapshot?.provider !== 'api' || !snapshot.accessToken) {
+      throw new Error('API investor funding requires a signed-in VerityAPI session.');
+    }
+    if (!investorOrganizationId) {
+      throw new Error('Investor organization is required before funding marketplace invoices.');
+    }
+    if (!invItem?.fundingOfferId) {
+      throw new Error('Funding offer ID is required before funding marketplace invoices.');
     }
 
-    const updatedInvoices = invoices.map(inv => {
-      if (inv.id === invoiceId) {
-        return { ...inv, status: 'Funded' as const };
-      }
-      return inv;
+    await verityApi.createFundingCommitment(snapshot.accessToken, invItem.fundingOfferId, {
+      investorId: investorOrganizationId,
+      committedAmount: advanceAmt,
+      offeredRate: invItem.discount / 100,
+      commitmentTxRef: `VERITYUI-${invItem.fundingOfferId}-${Date.now()}`,
     });
-
-    setInvoices(updatedInvoices);
-
-    // Subtract from available capital pool
-    setAvailableCapital(prev => prev - advanceAmt);
-
-    // Add to active and total committed
-    setActiveInvestments(prev => prev + advanceAmt);
-    setTotalCommitted(prev => prev + advanceAmt);
-
-    // Calculate dynamic yield part
-    let yieldEarned = 0;
-    let obligorName = "Unknown Obligor";
-    if (invItem) {
-      yieldEarned = invItem.faceValue * (invItem.discount / 100);
-      obligorName = invItem.obligor;
-      // Increment dynamic YTD earned parameter
-      setYtdEarned(prev => prev + yieldEarned);
-    }
-
-    // Prepend dynamic item to ledger list
-    const newLedgerRow: LedgerRow = {
-      invoiceId,
-      obligor: obligorName,
-      faceValue: invItem ? invItem.faceValue : advanceAmt,
-      yieldEarned: yieldEarned || (advanceAmt * 0.02),
-      settlementDate: new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }),
-      status: 'FACTORED'
-    };
-    setLedgerRows(prev => [newLedgerRow, ...prev]);
-
-    // Prepend dynamic item to timeline settlements list
-    const newSettlement: Settlement = {
-      id: 'SET-' + Math.floor(10000 + Math.random() * 90000),
-      invoiceId,
-      payer: obligorName,
-      amount: invItem ? invItem.faceValue : advanceAmt,
-      yieldEarned: yieldEarned || (advanceAmt * 0.02),
-      timeAgo: 'Just now',
-      status: 'Settled',
-      date: new Date().toISOString()
-    };
-    setSettlements(prev => [newSettlement, ...prev]);
+    await refreshInvestorWorkspace();
 
     // Track notifications log
     setNotifications(prev => [
-      `Approved Factoring of invoice ${invoiceId} for ${obligorName}`,
+      `Approved funding commitment for invoice ${invoiceId}`,
       ...prev
     ]);
   };
