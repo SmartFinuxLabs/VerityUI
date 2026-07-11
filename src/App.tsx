@@ -11,7 +11,7 @@ import { ProtocolDashboard } from './public/components/sandbox/ProtocolDashboard
 import { SandboxPortal } from './public/components/sandbox/SandboxPortal';
 import { INITIAL_INVOICES, INITIAL_TRANSACTIONS } from './public/data';
 import { Invoice, PlatformStats, TransactionRecord } from './public/types';
-import { Landmark } from 'lucide-react';
+import { Landmark, User } from 'lucide-react';
 import { ParticipantRole, clearParticipantAccess, getParticipantAccessSnapshot, hasParticipantAccess } from './lib/participantAuth';
 
 function getFirstRouteForRole(role?: ParticipantRole) {
@@ -42,6 +42,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
   });
   const [activeRole, setActiveRole] = useState<'Supplier' | 'Buyer' | 'Investor' | 'Operator'>('Supplier');
+  const [showPublicProfileMenu, setShowPublicProfileMenu] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('verity_ui_public_invoices', JSON.stringify(invoices));
@@ -70,6 +71,7 @@ export default function App() {
   };
 
   const handleResetAccess = () => {
+    setShowPublicProfileMenu(false);
     clearParticipantAccess();
     setAccessSnapshot(null);
     navigate('/login', { replace: true });
@@ -142,25 +144,6 @@ export default function App() {
         </nav>
 
         <div className="flex items-center gap-3">
-          {accessSnapshot && (
-            <>
-              <span className="hidden lg:inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-zinc-600 bg-zinc-100 border border-zinc-200 px-2.5 py-1 rounded-sm">
-                {accessSnapshot.provider === 'api' ? 'API Access' : 'Demo Access'}
-                <span className="text-zinc-400">{accessSnapshot.email}</span>
-              </span>
-              {accessSnapshot.participantRole && (
-                <span className="hidden md:inline-flex items-center px-2.5 py-1 text-[10px] uppercase tracking-widest font-bold border border-zinc-300 text-zinc-700 bg-white rounded-sm">
-                  {accessSnapshot.participantRole}
-                </span>
-              )}
-              <button
-                onClick={handleResetAccess}
-                className="hidden sm:inline-flex px-3 py-1.5 text-[10px] uppercase tracking-widest font-bold border border-zinc-300 text-zinc-700 bg-white hover:bg-zinc-50 transition-colors"
-              >
-                Reset Access
-              </button>
-            </>
-          )}
           {accessSnapshot?.participantRole && (
             <button
               onClick={handleOpenWorkspace}
@@ -168,6 +151,38 @@ export default function App() {
             >
               Open Workspace
             </button>
+          )}
+          {accessSnapshot && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowPublicProfileMenu((value) => !value)}
+                aria-label="Open user access menu"
+                aria-expanded={showPublicProfileMenu}
+                className="w-9 h-9 rounded-full border border-zinc-300 bg-white hover:bg-zinc-50 text-zinc-700 flex items-center justify-center transition-colors"
+              >
+                <User className="w-4 h-4" />
+              </button>
+
+              {showPublicProfileMenu && (
+                <div className="absolute right-0 mt-2 w-72 bg-white border border-zinc-200 rounded-[8px] shadow-xl z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50">
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-zinc-400">Signed in as</p>
+                    <p className="mt-1 text-sm font-bold text-zinc-900">{accessSnapshot.participantRole ?? 'Participant'}</p>
+                    <p className="mt-1 text-xs font-mono font-semibold text-zinc-500 break-all">
+                      {accessSnapshot.provider === 'api' ? 'API Access' : 'Demo Access'} · {accessSnapshot.email}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResetAccess}
+                    className="w-full px-4 py-3 text-left text-[10px] uppercase tracking-widest font-bold text-zinc-700 hover:bg-zinc-50 transition-colors"
+                  >
+                    Reset Access
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           <button
             onClick={() => navigate('/login')}

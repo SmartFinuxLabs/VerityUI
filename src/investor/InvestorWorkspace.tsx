@@ -12,7 +12,6 @@ import React, { useEffect, useState } from 'react';
 import './index.css';
 import { 
   ShieldCheck, 
-  Wallet, 
   Bell, 
   Search, 
   Settings, 
@@ -84,6 +83,7 @@ export default function InvestorWorkspace({
     "Smart Contract disburse logged on Arc Network node: US-EAST"
   ]);
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   // Wallet Connection Simulation State
   const [walletState, setWalletState] = useState<WalletState>({
@@ -439,30 +439,6 @@ export default function InvestorWorkspace({
           {/* Right Action Widgets row */}
           <div className="flex items-center space-x-4">
             
-            {/* Wallet Connector Control */}
-            <div id="wallet-connector-widget">
-              {walletState.connected ? (
-                <div className="bg-brand-primary/5 border border-brand-primary/10 rounded-[6px] p-1.5 flex items-center space-x-2.5 text-xs">
-                  <div className="bg-brand-primary text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono tracking-wider text-center flex items-center space-x-1 justify-center shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-                    <span>{walletState.network === 'arc' ? 'ARC' : 'ETH'}</span>
-                  </div>
-                  <span className="font-mono text-slate-700 font-bold">{walletState.address}</span>
-                  <div className="border-l border-slate-200 pl-2.5 pr-1 font-bold text-slate-900 font-mono">
-                    {walletState.balance.toLocaleString('en-US', { maximumFractionDigits: 0 })} USDC
-                  </div>
-                </div>
-              ) : (
-                <button 
-                  onClick={() => setIsWalletModalOpen(true)}
-                  className="bg-brand-primary hover:bg-brand-primary-container text-white py-1.5 px-3.5 rounded-[6px] text-xs font-bold flex items-center space-x-2 cursor-pointer transition shadow-sm hover:-translate-y-0.5 active:translate-y-0"
-                >
-                  <Wallet className="w-3.5 h-3.5" />
-                  <span>Connect Wallet</span>
-                </button>
-              )}
-            </div>
-
             {/* Notifications panel toggle */}
             <div className="relative">
               <button 
@@ -505,25 +481,42 @@ export default function InvestorWorkspace({
               )}
             </div>
 
-            {/* Sleek Profile Indicator */}
-            <div className="flex items-center space-x-2 border-l border-slate-200 pl-4 h-8">
-              <div className="w-8 h-8 rounded-full bg-slate-850 bg-gradient-to-tr from-brand-primary to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow overflow-hidden shrink-0 border border-slate-200">
-                SF
-              </div>
-              <div className="hidden xl:block">
-                <span className="text-xs font-extrabold text-slate-800 block leading-tight">{accessLabel ?? 'Investor Workspace'}</span>
-                <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">{accessRole ?? 'Investor Node'}</span>
-              </div>
-            </div>
-
-            {onResetAccess && (
+            {/* Profile Menu */}
+            <div className="relative border-l border-slate-200 pl-4 h-8 flex items-center">
               <button
-                onClick={onResetAccess}
-                className="hidden md:inline-flex px-3 py-1.5 text-[10px] uppercase tracking-widest font-bold border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 transition-colors rounded-[6px]"
+                type="button"
+                onClick={() => setShowProfileMenu((value) => !value)}
+                aria-label="Open user access menu"
+                aria-expanded={showProfileMenu}
+                className="w-8 h-8 rounded-full bg-slate-850 bg-gradient-to-tr from-brand-primary to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow overflow-hidden shrink-0 border border-slate-200 hover:ring-2 hover:ring-brand-primary/20 transition-all"
               >
-                Reset Access
+                {(accessRole ?? 'Investor').slice(0, 2).toUpperCase()}
               </button>
-            )}
+
+              {showProfileMenu && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-[8px] shadow-xl overflow-hidden z-50 animate-fade-in">
+                  <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Signed in as</p>
+                    <p className="mt-1 text-sm font-bold text-slate-900">{accessRole ?? 'Investor Node'}</p>
+                    <p className="mt-1 text-xs font-mono font-semibold text-slate-500 break-all">
+                      {accessLabel ?? 'Investor Workspace'}
+                    </p>
+                  </div>
+                  {onResetAccess && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        onResetAccess();
+                      }}
+                      className="w-full px-4 py-3 text-left text-[10px] uppercase tracking-widest font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      Reset Access
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
 
           </div>
         </header>
