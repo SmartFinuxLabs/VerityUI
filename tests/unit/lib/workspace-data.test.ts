@@ -1,13 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ApiAuthSession } from '../../../src/lib/apiClient';
-import { storeDemoAccess } from '../../../src/lib/participantAuth';
-import {
-  getBuyerWorkspaceInitialState,
-  isDemoWorkspaceDataMode,
-} from '../../../src/lib/workspaceData';
+import { getBuyerWorkspaceInitialState } from '../../../src/lib/workspaceData';
 import { INITIAL_INVOICES as BUYER_INVOICES } from '../../../src/buyer/data';
-import { INITIAL_INVOICES as SUPPLIER_INVOICES } from '../../../src/supplier/data';
-import { initialInvoices as INVESTOR_INVOICES } from '../../../src/investor/data';
 
 function mockFetchJson(status: number, body: unknown) {
   const ok = status >= 200 && status < 300;
@@ -35,32 +28,28 @@ describe('workspace data services', () => {
     vi.resetModules();
   });
 
-  it('uses demo workspace data when runtime access is demo', () => {
-    storeDemoAccess('demo@test.local', { participantRole: 'Buyer' });
+  it('uses empty loading-safe buyer initial state', () => {
+    const initialState = getBuyerWorkspaceInitialState();
 
-    expect(isDemoWorkspaceDataMode()).toBe(true);
-    expect(getBuyerWorkspaceInitialState().invoices[0].id).toBe(BUYER_INVOICES[0].id);
+    expect(initialState.invoices).toEqual([]);
+    expect(initialState.fundingRequests).toEqual([]);
+    expect(initialState.liquidity).toMatchObject({
+      availableLiquidity: 0,
+      walletName: 'VerityAPI',
+      isConnected: false,
+    });
   });
 
-  it('uses demo workspace data when VITE_RUN_MODE is demo even with a stored API session', async () => {
+  it('requires API access token instead of falling back to demo workspace data', async () => {
     vi.resetModules();
-    vi.stubEnv('VITE_RUN_MODE', 'demo');
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
-    const participantAuth = await import('../../../src/lib/participantAuth');
     const workspaceData = await import('../../../src/lib/workspaceData');
 
-    participantAuth.storeApiSession({
-      user: { id: 'user_demo_override', email: 'buyer@test.local', userMetadata: { participantRole: 'Buyer' } },
-      accessToken: 'stale-api-token',
-    } satisfies ApiAuthSession);
-
-    const state = await workspaceData.loadBuyerWorkspaceState();
-
-    expect(state.invoices).toEqual(BUYER_INVOICES);
-    expect(state.fundingRequests).toEqual(expect.any(Array));
-    expect(state.liquidity).toEqual(expect.any(Object));
+    await expect(workspaceData.loadBuyerWorkspaceState()).rejects.toThrow(
+      'API workspace data requires an authenticated VerityAPI access token.'
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -386,7 +375,6 @@ describe('workspace data services', () => {
     expect(state.registeredBuyers).toEqual([
       { buyerId: 'buyer-org-1', buyerName: 'Northstar Buyer LLC', buyerStatus: 'ACTIVE' },
     ]);
-    expect(state.invoices).not.toEqual(SUPPLIER_INVOICES);
     expect(state.walletConnected).toBe(false);
   });
 
@@ -559,7 +547,6 @@ describe('workspace data services', () => {
     const state = await workspaceData.loadInvestorWorkspaceState();
 
     expect(state.invoices).toEqual([]);
-    expect(state.invoices).not.toEqual(INVESTOR_INVOICES);
     expect(state.availableCapital).toBe(0);
   });
 

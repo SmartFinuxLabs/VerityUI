@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { verityApi } from '../lib/apiClient';
-import { ParticipantRole, PartyType, storeApiSession, storeDemoAccess } from '../lib/participantAuth';
-import { isDemoMode } from '../lib/runtimeMode';
+import { ParticipantRole, PartyType, storeApiSession } from '../lib/participantAuth';
 
 const PARTICIPANT_ROLES: ParticipantRole[] = ['Supplier', 'Buyer', 'Investor'];
 
@@ -46,7 +45,7 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
   };
 
   const lookupRoleHintForEmail = async () => {
-    if (isDemoMode() || authMode !== 'signin') {
+    if (authMode !== 'signin') {
       return;
     }
 
@@ -99,15 +98,6 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
     setIsSubmitting(true);
 
     try {
-      if (isDemoMode()) {
-        storeDemoAccess(email, {
-          participantRole,
-          entityName,
-        });
-        onAuthenticated();
-        return;
-      }
-
       if (authMode === 'register') {
         const partyType = participantRole.toUpperCase() as PartyType;
         const { data } = await verityApi.register({
@@ -204,11 +194,6 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
           {invitationToken && (
             <p className="mt-4 text-[11px] uppercase tracking-[0.2em] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-3 py-2">
               Invitation flow detected. Complete sign-in or registration to activate membership.
-            </p>
-          )}
-          {isDemoMode() && (
-            <p className="mt-4 text-[11px] uppercase tracking-[0.2em] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2">
-              Demo mode active. Local demo data is being used.
             </p>
           )}
         </div>

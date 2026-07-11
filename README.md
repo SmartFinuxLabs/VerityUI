@@ -29,19 +29,7 @@ The dev server runs on `http://localhost:3000`.
 http://localhost:8080/api/v1
 ```
 
-`VITE_RUN_MODE` controls workspace data behavior:
-
-```text
-VITE_RUN_MODE=demo
-```
-
-Demo mode always uses local fixture data and does not call VerityAPI workspace endpoints, even if an API session is stored in browser localStorage.
-
-```text
-VITE_RUN_MODE=api
-```
-
-API mode signs in through VerityAPI and loads role workspace state from:
+Portal login always signs in through VerityAPI and loads role workspace state from:
 
 - `GET /workspaces/buyer`
 - `GET /workspaces/supplier`
@@ -60,7 +48,12 @@ npm run build
 
 ## Smoke Tests
 
-The smoke suite runs the UI in demo mode and validates role-based flows for Supplier, Buyer, and Investor workspaces.
+The smoke suite always validates public routing and unauthenticated portal redirects. Authenticated portal smoke requires seeded VerityAPI users supplied through environment variables:
+
+- `VERITY_SMOKE_SUPPLIER_EMAIL`
+- `VERITY_SMOKE_BUYER_EMAIL`
+- `VERITY_SMOKE_INVESTOR_EMAIL`
+- `VERITY_SMOKE_PASSWORD`
 
 ```bash
 npx playwright install chromium

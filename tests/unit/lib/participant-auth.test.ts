@@ -4,23 +4,37 @@ import {
   getParticipantAccessSnapshot,
   hasParticipantAccess,
   storeApiSession,
-  storeDemoAccess,
 } from '../../../src/lib/participantAuth';
 
 describe('participant auth storage functions', () => {
-  it('stores demo participant access snapshots', () => {
-    storeDemoAccess('buyer@test.local', {
-      participantRole: 'Buyer',
-      entityName: 'Acme Buyer',
-    });
+  it('rejects stale demo participant access snapshots', () => {
+    window.localStorage.setItem(
+      'verityui_participant_access',
+      JSON.stringify({
+        provider: 'demo',
+        email: 'buyer@test.local',
+        participantRole: 'Buyer',
+        entityName: 'Acme Buyer',
+      })
+    );
 
-    expect(hasParticipantAccess()).toBe(true);
-    expect(getParticipantAccessSnapshot()).toEqual({
-      provider: 'demo',
-      email: 'buyer@test.local',
-      participantRole: 'Buyer',
-      entityName: 'Acme Buyer',
-    });
+    expect(hasParticipantAccess()).toBe(false);
+    expect(getParticipantAccessSnapshot()).toBeNull();
+    expect(window.localStorage.getItem('verityui_participant_access')).toBeNull();
+  });
+
+  it('rejects tokenless API participant access snapshots', () => {
+    window.localStorage.setItem(
+      'verityui_participant_access',
+      JSON.stringify({
+        provider: 'api',
+        email: 'buyer@test.local',
+        participantRole: 'Buyer',
+      })
+    );
+
+    expect(hasParticipantAccess()).toBe(false);
+    expect(getParticipantAccessSnapshot()).toBeNull();
   });
 
   it('stores API sessions and normalizes party type metadata', () => {
@@ -81,7 +95,10 @@ describe('participant auth storage functions', () => {
 
     expect(getParticipantAccessSnapshot()).toBeNull();
 
-    storeDemoAccess('supplier@test.local');
+    storeApiSession({
+      user: { id: 'supplier-user', email: 'supplier@test.local', userMetadata: { participantRole: 'Supplier' } },
+      accessToken: 'access-token',
+    });
     clearParticipantAccess();
 
     expect(hasParticipantAccess()).toBe(false);

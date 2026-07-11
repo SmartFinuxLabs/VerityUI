@@ -113,7 +113,7 @@ async function requestApi<T>(path: string, init?: RequestInit): Promise<T> {
   } catch (error) {
     if (error instanceof TypeError) {
       throw new Error(
-        `Unable to reach VerityAPI at ${apiBaseUrl}. Start VerityAPI or set VITE_RUN_MODE=demo for local demo login.`
+        `Unable to reach VerityAPI at ${apiBaseUrl}. Start VerityAPI or configure VITE_API_BASE_URL for this environment.`
       );
     }
 

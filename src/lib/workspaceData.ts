@@ -1,13 +1,9 @@
-import { INITIAL_FUNDING_REQUESTS, INITIAL_INVOICES as BUYER_INVOICES, INITIAL_LIQUIDITY } from '../buyer/data';
 import type { FundingRequest, Invoice as BuyerInvoice, LiquidityProfile } from '../buyer/types';
-import { initialInvoices as INVESTOR_INVOICES, initialLedger, initialSettlements } from '../investor/data';
 import type { Invoice as InvestorInvoice, LedgerRow, Settlement } from '../investor/types';
-import { INITIAL_INVOICES as SUPPLIER_INVOICES } from '../supplier/data';
 import type { Invoice as SupplierInvoice, RegisteredBuyerOption } from '../supplier/types';
 import { verityApi } from './apiClient';
 import { getParticipantAccessSnapshot, type ParticipantAccessSnapshot } from './participantAuth';
 import { normalizeFundingStatus } from './fundingStatusDisplay';
-import { isDemoMode } from './runtimeMode';
 
 export interface BuyerWorkspaceState {
   invoices: BuyerInvoice[];
@@ -52,15 +48,6 @@ export interface InvestorWorkspaceState {
   ytdEarned: number;
 }
 
-function readJsonStorage<T>(key: string, fallback: T): T {
-  try {
-    const saved = window.localStorage.getItem(key);
-    return saved ? (JSON.parse(saved) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 function requireApiToken(snapshot: ParticipantAccessSnapshot | null): string {
   if (snapshot?.provider !== 'api' || !snapshot.accessToken) {
     throw new Error('API workspace data requires an authenticated VerityAPI access token.');
@@ -69,200 +56,60 @@ function requireApiToken(snapshot: ParticipantAccessSnapshot | null): string {
   return snapshot.accessToken;
 }
 
-export function isDemoWorkspaceDataMode(
-  snapshot: ParticipantAccessSnapshot | null = getParticipantAccessSnapshot(),
-  demoMode = isDemoMode()
-) {
-  return demoMode || snapshot?.provider !== 'api';
-}
-
-export function getBuyerDemoWorkspaceState(): BuyerWorkspaceState {
+export function getBuyerWorkspaceInitialState(): BuyerWorkspaceState {
   return {
-    invoices: readJsonStorage('sfl_invoices', BUYER_INVOICES),
-    fundingRequests: readJsonStorage('sfl_funding_requests', INITIAL_FUNDING_REQUESTS),
-    liquidity: readJsonStorage('sfl_liquidity', INITIAL_LIQUIDITY),
-  };
-}
-
-export function getSupplierDemoWorkspaceState(): SupplierWorkspaceState {
-  const buyerInvoices = readJsonStorage<BuyerInvoice[]>('sfl_invoices', BUYER_INVOICES);
-  const savedSupplierInvoices = readJsonStorage<SupplierInvoice[] | null>('sfl_supplier_invoices', null);
-  
-  const baseSupplierInvoices = savedSupplierInvoices ?? SUPPLIER_INVOICES;
-  const syncedSupplierInvoices = baseSupplierInvoices.map(inv => {
-    const matchingBuyer = buyerInvoices.find(b => b.id === inv.id || b.invoiceNumber === inv.invoiceNumber);
-    if (matchingBuyer && matchingBuyer.status === 'CONTESTED') {
-      return { ...inv, status: 'DISPUTED' as const };
-    }
-    if (matchingBuyer && matchingBuyer.status === 'VERIFIED') {
-      return { ...inv, status: 'ACCEPTED' as const };
-    }
-    return inv;
-  });
-
-  return {
-    supplierOrganizationId: 'demo-supplier-techgear',
-    invoices: syncedSupplierInvoices,
-    registeredBuyers: [
-      { buyerId: 'demo-buyer-acme-global', buyerName: 'Acme Corp Global', buyerStatus: 'ACTIVE' },
-      { buyerId: 'demo-buyer-global-mfg', buyerName: 'Global Manufacturing Corp', buyerStatus: 'ACTIVE' },
-      { buyerId: 'demo-buyer-stark', buyerName: 'Stark Industries', buyerStatus: 'ACTIVE' },
-      { buyerId: 'demo-buyer-retail', buyerName: 'Retail Giant', buyerStatus: 'ACTIVE' },
-    ],
-    availableLiquidity: 215500,
-    escrowValue: 145000,
-    onChainCredit: 820,
-    walletConnected: true,
-    walletAddress: '0x71C8384f9E58A49dfF0bd083B20B2F5b48B64F9E',
-  };
-}
-
-export function getSupplierDemoAnalyticsState(): SupplierAnalyticsState {
-  return {
-    volumeByStatus: [
-      { status: 'PENDING', count: 2, totalAmount: 35000 },
-      { status: 'ACCEPTED', count: 3, totalAmount: 75000 },
-      { status: 'FACTORED', count: 1, totalAmount: 50000 },
-    ],
-    timeTrends: [
-      { period: '2026-05', createdVolume: 120000, settledVolume: 80000 },
-      { period: '2026-06', createdVolume: 160000, settledVolume: 40000 },
-    ],
-    cashFlowProjections: [
-      { date: '2026-07-15', expectedAmount: 45000, factoredAmount: 20000 },
-      { date: '2026-08-01', expectedAmount: 30000, factoredAmount: 30000 },
-    ],
-    financialHealth: {
-      disputeRatio: 0.05,
-      onChainCreditScore: 820,
-      totalOutstanding: 160000,
-      totalFactored: 50000,
-      liquidityRatio: 0.31,
+    invoices: [],
+    fundingRequests: [],
+    liquidity: {
+      availableLiquidity: 0,
+      walletAddress: '',
+      walletName: 'VerityAPI',
+      isConnected: false,
     },
-    creditHistory: [
-      { period: '2026-02', score: 775 },
-      { period: '2026-03', score: 790 },
-      { period: '2026-04', score: 805 },
-      { period: '2026-05', score: 820 },
-    ],
   };
 }
 
-export function getInvestorDemoWorkspaceState(): InvestorWorkspaceState {
-  const supplierInvoices = readJsonStorage<SupplierInvoice[]>('sfl_supplier_invoices', SUPPLIER_INVOICES);
-  const marketplaceInvoices = supplierInvoices
-    .filter((invoice) => normalizeFundingStatus(invoice.fundingStatus) === 'LISTED')
-    .map((invoice): InvestorInvoice => ({
-      id: invoice.invoiceNumber ?? invoice.id,
-      invoiceId: invoice.id,
-      invoiceNumber: invoice.invoiceNumber ?? invoice.id,
-      fundingOfferId: invoice.fundingOfferId ?? `demo-offer-${invoice.id}`,
-      financeabilityId: invoice.financeabilityId ?? `demo-financeability-${invoice.id}`,
-      obligor: invoice.buyer,
-      supplier: 'Smart Finux Labs',
-      logoType: 'tech',
-      faceValue: invoice.grossAmount ?? invoice.amount,
-      offeredAmount: invoice.offeredAmount ?? invoice.advanceAmount ?? invoice.amount * 0.9,
-      discount: (invoice.yieldApr ?? 0.12) * 100,
-      maturity: 60,
-      status: 'Available',
-      fundingStatus: 'LISTED',
-      invoiceStatus: invoice.status,
-      buyerRating: 'A',
-      buyerScore: 90,
-      poNumber: invoice.poNumber ?? `PO-${invoice.invoiceNumber ?? invoice.id}`,
-      poDate: invoice.issueDate ?? '',
-      grnWarehouse: invoice.goodsReceiptNumber ?? `GR-${invoice.invoiceNumber ?? invoice.id}`,
-      grnDate: invoice.dueDate ?? invoice.maturityDate,
-      signatureName: 'Verity Verified',
-      signatureDivision: 'Accounts Payable',
-      signatureDate: invoice.issueDate ?? '',
-      description: invoice.itemDescription ?? 'Supplier marketplace invoice',
-      verityScore: 92,
-      paymentDelinquency: 0,
-      avgDaysBeyondTerm: 0,
-      disputeRatio: 0,
-      retentionReleaseRate: 100,
-      marketCap: 'N/A',
-      spRating: 'A',
-      nyseSymbol: 'N/A',
-    }));
-
+export function getSupplierWorkspaceInitialState(): SupplierWorkspaceState {
   return {
-    investorOrganizationId: 'demo-investor-capital',
-    invoices: [...marketplaceInvoices, ...INVESTOR_INVOICES],
-    settlements: initialSettlements,
-    ledgerRows: initialLedger,
-    totalCommitted: 12450000.0,
-    activeInvestments: 8124550.0,
-    availableCapital: 4325450.0,
-    projectedYield: 8.45,
-    ytdEarned: 156250.0,
+    supplierOrganizationId: null,
+    invoices: [],
+    registeredBuyers: [],
+    availableLiquidity: 0,
+    escrowValue: 0,
+    onChainCredit: 0,
+    walletConnected: false,
+    walletAddress: null,
   };
-}
-
-export function getBuyerWorkspaceInitialState() {
-  return isDemoWorkspaceDataMode()
-    ? getBuyerDemoWorkspaceState()
-    : {
-        invoices: [],
-        fundingRequests: [],
-        liquidity: {
-          availableLiquidity: 0,
-          walletAddress: '',
-          walletName: 'VerityAPI',
-          isConnected: false,
-        },
-      };
-}
-
-export function getSupplierWorkspaceInitialState() {
-  return isDemoWorkspaceDataMode()
-    ? getSupplierDemoWorkspaceState()
-    : {
-        supplierOrganizationId: null,
-        invoices: [],
-        registeredBuyers: [],
-        availableLiquidity: 0,
-        escrowValue: 0,
-        onChainCredit: 0,
-        walletConnected: false,
-        walletAddress: null,
-      };
 }
 
 export function getSupplierAnalyticsInitialState(): SupplierAnalyticsState {
-  return isDemoWorkspaceDataMode()
-    ? getSupplierDemoAnalyticsState()
-    : {
-        volumeByStatus: [],
-        timeTrends: [],
-        cashFlowProjections: [],
-        financialHealth: {
-          disputeRatio: 0,
-          onChainCreditScore: 0,
-          totalOutstanding: 0,
-          totalFactored: 0,
-          liquidityRatio: 0,
-        },
-        creditHistory: [],
-      };
+  return {
+    volumeByStatus: [],
+    timeTrends: [],
+    cashFlowProjections: [],
+    financialHealth: {
+      disputeRatio: 0,
+      onChainCreditScore: 0,
+      totalOutstanding: 0,
+      totalFactored: 0,
+      liquidityRatio: 0,
+    },
+    creditHistory: [],
+  };
 }
 
-export function getInvestorWorkspaceInitialState() {
-  return isDemoWorkspaceDataMode()
-    ? getInvestorDemoWorkspaceState()
-    : {
-        investorOrganizationId: null,
-        invoices: [],
-        settlements: [],
-        ledgerRows: [],
-        totalCommitted: 0,
-        activeInvestments: 0,
-        availableCapital: 0,
-        projectedYield: 0,
-        ytdEarned: 0,
-      };
+export function getInvestorWorkspaceInitialState(): InvestorWorkspaceState {
+  return {
+    investorOrganizationId: null,
+    invoices: [],
+    settlements: [],
+    ledgerRows: [],
+    totalCommitted: 0,
+    activeInvestments: 0,
+    availableCapital: 0,
+    projectedYield: 0,
+    ytdEarned: 0,
+  };
 }
 
 function normalizeSupplierApiInvoice(invoice: SupplierInvoice): SupplierInvoice {
@@ -487,10 +334,6 @@ function normalizeBuyerApiInvoice(invoice: BuyerInvoice): BuyerInvoice {
 export async function loadBuyerWorkspaceState(
   snapshot: ParticipantAccessSnapshot | null = getParticipantAccessSnapshot()
 ): Promise<BuyerWorkspaceState> {
-  if (isDemoWorkspaceDataMode(snapshot)) {
-    return getBuyerDemoWorkspaceState();
-  }
-
   const { data } = await verityApi.getBuyerWorkspaceState(requireApiToken(snapshot));
   return {
     invoices: (data?.invoices ?? []).map(normalizeBuyerApiInvoice),
@@ -509,10 +352,6 @@ export async function loadBuyerWorkspaceState(
 export async function loadSupplierWorkspaceState(
   snapshot: ParticipantAccessSnapshot | null = getParticipantAccessSnapshot()
 ): Promise<SupplierWorkspaceState> {
-  if (isDemoWorkspaceDataMode(snapshot)) {
-    return getSupplierDemoWorkspaceState();
-  }
-
   const { data } = await verityApi.getSupplierWorkspaceState(requireApiToken(snapshot));
   return {
     supplierOrganizationId: data?.supplierOrganizationId ?? null,
@@ -529,10 +368,6 @@ export async function loadSupplierWorkspaceState(
 export async function loadSupplierAnalytics(
   snapshot: ParticipantAccessSnapshot | null = getParticipantAccessSnapshot()
 ): Promise<SupplierAnalyticsState> {
-  if (isDemoWorkspaceDataMode(snapshot)) {
-    return getSupplierDemoAnalyticsState();
-  }
-
   const { data } = await verityApi.getSupplierAnalytics(requireApiToken(snapshot));
   return {
     volumeByStatus: data?.volumeByStatus ?? [],
@@ -552,10 +387,6 @@ export async function loadSupplierAnalytics(
 export async function loadInvestorWorkspaceState(
   snapshot: ParticipantAccessSnapshot | null = getParticipantAccessSnapshot()
 ): Promise<InvestorWorkspaceState> {
-  if (isDemoWorkspaceDataMode(snapshot)) {
-    return getInvestorDemoWorkspaceState();
-  }
-
   const { data } = await verityApi.getInvestorWorkspaceState(requireApiToken(snapshot));
   return {
     investorOrganizationId: data?.investorOrganizationId ?? null,
@@ -568,22 +399,4 @@ export async function loadInvestorWorkspaceState(
     projectedYield: data?.projectedYield ?? 0,
     ytdEarned: data?.ytdEarned ?? 0,
   };
-}
-
-export function persistBuyerDemoWorkspaceState(state: BuyerWorkspaceState) {
-  if (!isDemoWorkspaceDataMode()) {
-    return;
-  }
-
-  window.localStorage.setItem('sfl_invoices', JSON.stringify(state.invoices));
-  window.localStorage.setItem('sfl_funding_requests', JSON.stringify(state.fundingRequests));
-  window.localStorage.setItem('sfl_liquidity', JSON.stringify(state.liquidity));
-}
-
-export function persistSupplierDemoWorkspaceState(state: SupplierWorkspaceState) {
-  if (!isDemoWorkspaceDataMode()) {
-    return;
-  }
-
-  window.localStorage.setItem('sfl_supplier_invoices', JSON.stringify(state.invoices));
 }
