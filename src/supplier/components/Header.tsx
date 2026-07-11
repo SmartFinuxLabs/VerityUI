@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Bell, Settings, User, Wallet, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Search, Bell, Settings, User, Sparkles, CheckCircle2 } from 'lucide-react';
 import { MainRoute } from '../types';
 
 interface HeaderProps {
@@ -19,8 +19,6 @@ export default function Header({
   currentRoute,
   setCurrentRoute,
   workspacePerspective,
-  walletConnected,
-  onToggleWallet,
   searchQuery,
   setSearchQuery,
   accessLabel,
@@ -29,6 +27,7 @@ export default function Header({
 }: HeaderProps) {
   
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [notifications, setNotifications] = useState([
     { id: 1, message: 'Dispute raised on INV-2026-089 by Global Manufacturing Corp', status: 'new' },
     { id: 2, message: 'Invoice INV-002: approved for 90% advance routing', status: 'old' },
@@ -98,25 +97,6 @@ export default function Header({
           />
         </div>
 
-        {/* Dynamic Connect Wallet button (essential for on-chain identity) */}
-        <button
-          onClick={onToggleWallet}
-          type="button"
-          className={`flex items-center gap-2.5 px-4 py-2 rounded-[6px] text-[13px] font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
-            walletConnected 
-              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 shadow-3xs'
-              : 'bg-[#0052CC] hover:bg-[#003D9B] text-white shadow-xs hover:shadow-subtle hover:-translate-y-0.5 active:translate-y-0'
-          }`}
-        >
-          <Wallet className={`w-4 h-4 ${walletConnected ? 'text-emerald-600' : 'text-white'}`} />
-          <span className="font-semibold">
-            {walletConnected ? 'Node Wallet: 0xVerity...4F9E' : 'Connect Node Wallet'}
-          </span>
-          {walletConnected && (
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
-          )}
-        </button>
-
         {/* Notifications Popover */}
         <div className="relative">
           <button
@@ -161,30 +141,41 @@ export default function Header({
           <Settings className="w-4.5 h-4.5" />
         </button>
 
-        {/* User Identity Avatar */}
-        {accessRole && (
-          <span className="hidden lg:inline-flex items-center px-2.5 py-1 text-[10px] uppercase tracking-widest font-bold border border-slate-300 text-slate-700 bg-white rounded-sm">
-            {accessRole}
-          </span>
-        )}
-
-        {accessLabel && (
-          <span className="hidden xl:inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-sm">
-            {accessLabel}
-          </span>
-        )}
-
-        {onResetAccess && (
+        {/* User Identity Menu */}
+        <div className="relative">
           <button
-            onClick={onResetAccess}
-            className="px-3 py-1.5 text-[10px] uppercase tracking-widest font-bold border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 transition-colors rounded-[6px]"
+            type="button"
+            onClick={() => setShowProfileMenu((value) => !value)}
+            aria-label="Open user access menu"
+            aria-expanded={showProfileMenu}
+            className="w-8.5 h-8.5 rounded-full bg-[#0052CC]/10 border border-[#0052CC]/25 flex items-center justify-center text-[#0052CC] font-bold text-xs select-none hover:bg-[#0052CC]/15 transition-colors"
           >
-            Reset Access
+            {accessRole ? accessRole.slice(0, 2).toUpperCase() : 'JS'}
           </button>
-        )}
 
-        <div className="w-8.5 h-8.5 rounded-full bg-[#0052CC]/10 border border-[#0052CC]/25 flex items-center justify-center text-[#0052CC] font-bold text-xs select-none">
-          JS
+          {showProfileMenu && (
+            <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-[8px] shadow-xl z-50 overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Signed in as</p>
+                <p className="mt-1 text-sm font-bold text-slate-900">{accessRole ?? workspacePerspective}</p>
+                {accessLabel && (
+                  <p className="mt-1 text-xs font-mono font-semibold text-slate-500 break-all">{accessLabel}</p>
+                )}
+              </div>
+              {onResetAccess && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    onResetAccess();
+                  }}
+                  className="w-full px-4 py-3 text-left text-[10px] uppercase tracking-widest font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Reset Access
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
       </div>
