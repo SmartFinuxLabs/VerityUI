@@ -49,8 +49,9 @@ export default function FactoringView({
   // Eligible invoices are ACCEPTED ones. Keep list preloaded.
   const [localInvoices, setLocalInvoices] = useState<Invoice[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [flowStep, setFlowStep] = useState<'select' | 'review' | 'confirmation'>('select');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccessNotification, setShowSuccessNotification] = useState(false);
+  const [submittedAt, setSubmittedAt] = useState('');
   const [submissionError, setSubmissionError] = useState('');
 
   // Initialize the list of eligible invoices
@@ -93,35 +94,38 @@ export default function FactoringView({
   const retentionAmount = totalSelectedAmount * (1 - ADVANCE_RATE);
   const estimatedNetFunding = estimatedAdvance - estimatedPlatformFee;
 
+  const buildSubmissionTerms = (): FactoringSubmissionTerms => ({
+    selectedTotalAmount: totalSelectedAmount,
+    advanceRate: ADVANCE_RATE,
+    estimatedAdvance,
+    platformFee: estimatedPlatformFee,
+    reserveRate: RESERVE_RATE,
+    yieldApr: 0.12,
+    settlementCurrency: 'USDC',
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  });
+
   const handleMarketplaceSubmission = () => {
     if (selectedIds.length === 0) {
       alert("Please select at least one eligible invoice to submit for factoring.");
       return;
     }
 
+    setFlowStep('review');
+    setSubmissionError('');
+  };
+
+  const handleConfirmMarketplaceSubmission = () => {
     setIsSubmitting(true);
     setSubmissionError('');
     
-    // Simulate smart contract generation & indexing delay
+    // Simulate marketplace offer generation and indexing delay.
     setTimeout(() => {
       void (async () => {
         try {
-          await onSubmitFactoringBatch(selectedIds, estimatedAdvance, {
-            selectedTotalAmount: totalSelectedAmount,
-            advanceRate: ADVANCE_RATE,
-            estimatedAdvance,
-            platformFee: estimatedPlatformFee,
-            reserveRate: RESERVE_RATE,
-            yieldApr: 0.12,
-            settlementCurrency: 'USDC',
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          });
-          setShowSuccessNotification(true);
-          
-          // Continue the investor flow into settlement after funding is confirmed.
-          setTimeout(() => {
-            onSelectRoute('settlement');
-          }, 2500);
+          await onSubmitFactoringBatch(selectedIds, estimatedAdvance, buildSubmissionTerms());
+          setSubmittedAt(new Date().toISOString());
+          setFlowStep('confirmation');
         } catch (error) {
           setSubmissionError(error instanceof Error ? error.message : 'Marketplace submission failed.');
         } finally {
@@ -131,6 +135,171 @@ export default function FactoringView({
 
     }, 2000);
   };
+
+  const SummaryRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div className="flex items-center justify-between gap-4 border-b border-slate-100 py-3 last:border-b-0">
+      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">{label}</span>
+      <span className="text-sm font-extrabold text-slate-900 text-right">{value}</span>
+    </div>
+  );
+
+  if (flowStep === 'review') {
+    return (
+      <div id="request-factoring-review" className="p-6 md:p-10 space-y-8 max-w-5xl mx-auto w-full animate-fadeIn font-sans">
+        <nav className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+          <button onClick={() => setFlowStep('select')} className="hover:text-[#0052CC] cursor-pointer flex items-center gap-1">
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to selection
+          </button>
+          <ChevronRight className="w-3.5 h-3.5" />
+          <span className="text-[#0052CC]">Review</span>
+        </nav>
+
+        <div className="border-b border-slate-200/50 pb-6">
+          <h1 className="text-[28px] font-extrabold tracking-tight text-slate-900">Review Marketplace Submission</h1>
+          <p className="text-[14px] text-slate-500 mt-1">
+            Confirm the financing request terms before listing these accepted invoices for investor review.
+          </p>
+        </div>
+
+        <div className="grid lg:grid-cols-12 gap-8 items-start">
+          <section className="lg:col-span-7 bg-white border border-slate-200 rounded-[12px] shadow-3xs overflow-hidden">
+            <div className="p-5 border-b border-slate-100">
+              <h2 className="text-base font-extrabold text-slate-900">Invoices to list</h2>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {selectedInvoicesList.map((invoice) => (
+                <div key={invoice.id} className="p-5 grid sm:grid-cols-4 gap-3 text-sm">
+                  <div>
+                    <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400">Invoice</span>
+                    <span className="font-mono font-extrabold text-slate-950">{getInvoiceDisplayNumber(invoice)}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400">Buyer</span>
+                    <span className="font-bold text-slate-700">{invoice.buyer}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400">Accepted Value</span>
+                    <span className="font-mono font-extrabold text-slate-900">
+                      {invoice.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} USDC
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400">Maturity</span>
+                    <span className="font-bold text-slate-600">{invoice.maturityDate}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <aside className="lg:col-span-5 bg-white border border-slate-200 rounded-[12px] p-6 shadow-3xs">
+            <h2 className="text-base font-extrabold text-[#003D9B] mb-4 flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5" />
+              Submission Terms
+            </h2>
+            <SummaryRow
+              label="Accepted Value"
+              value={`${totalSelectedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} USDC`}
+            />
+            <SummaryRow label="Advance" value={`${estimatedAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })} USDC`} />
+            <SummaryRow label="Reserve" value={`${retentionAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} USDC`} />
+            <SummaryRow label="Platform Fee" value={`${estimatedPlatformFee.toLocaleString(undefined, { minimumFractionDigits: 2 })} USDC`} />
+            <SummaryRow label="Yield APR" value="12.00%" />
+            <SummaryRow label="Funding Currency" value="USDC" />
+
+            <div className="mt-5 rounded-[8px] border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 leading-relaxed">
+              <p className="font-extrabold mb-1">Representation and warranty recourse acknowledged</p>
+              <p>
+                The seller confirms these invoices are valid, buyer-accepted receivables and may be reviewed by investors on the marketplace.
+              </p>
+            </div>
+
+            {submissionError && (
+              <div className="mt-4 rounded-[8px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                {submissionError}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleConfirmMarketplaceSubmission}
+              disabled={isSubmitting}
+              className="mt-5 w-full bg-[#0052CC] hover:bg-[#003D9B] disabled:bg-slate-300 disabled:text-slate-500 text-white text-[14px] font-bold py-3.5 px-4 rounded-[6.5px] transition-all flex items-center justify-center gap-2 tracking-wide shadow-sm cursor-pointer"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Submitting to Marketplace...</span>
+                </>
+              ) : (
+                <span>Confirm Submission</span>
+              )}
+            </button>
+          </aside>
+        </div>
+      </div>
+    );
+  }
+
+  if (flowStep === 'confirmation') {
+    return (
+      <div id="request-factoring-confirmation" className="p-6 md:p-10 max-w-4xl mx-auto w-full animate-fadeIn font-sans">
+        <div className="bg-white border border-emerald-200 rounded-[12px] p-8 shadow-3xs">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
+              <CheckCircle2 className="w-7 h-7" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-widest font-bold text-emerald-700 mb-2">Marketplace Listed</p>
+              <h1 className="text-[28px] font-extrabold tracking-tight text-slate-900">Marketplace Submission Confirmed</h1>
+              <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                The selected invoice receivable is now available for investor review. Settlement operations remain pending until investor funding and platform settlement instructions are created.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-8 grid sm:grid-cols-2 gap-4">
+            <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
+              <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400">Submitted invoices</span>
+              <span className="text-lg font-extrabold text-slate-900">{selectedIds.length}</span>
+            </div>
+            <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
+              <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400">Estimated advance</span>
+              <span className="text-lg font-extrabold text-slate-900 font-mono">
+                {estimatedAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })} USDC
+              </span>
+            </div>
+            <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
+              <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400">Marketplace status</span>
+              <span className="text-lg font-extrabold text-emerald-700">Listed</span>
+            </div>
+            <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
+              <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400">Submitted at</span>
+              <span className="text-sm font-bold text-slate-700">{submittedAt ? new Date(submittedAt).toLocaleString() : 'Just now'}</span>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={() => onSelectRoute('invoice-queue')}
+              className="px-5 py-3 bg-[#0052CC] text-white text-xs font-bold uppercase tracking-widest rounded-[6px]"
+            >
+              View Invoice Queue
+            </button>
+            <button
+              type="button"
+              onClick={() => setFlowStep('select')}
+              className="px-5 py-3 bg-white border border-slate-300 text-slate-700 text-xs font-bold uppercase tracking-widest rounded-[6px]"
+            >
+              Create Another Request
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div id="request-factoring-view" className="p-6 md:p-10 space-y-8 max-w-7xl mx-auto w-full animate-fadeIn font-sans">
@@ -367,7 +536,7 @@ export default function FactoringView({
                     ESTIMATED NET FUNDING
                   </span>
                   <span className="text-[11px] text-emerald-600 font-bold block mt-0.5">
-                    ● Instant settlement routing
+                    ● Available after investor funding
                   </span>
                 </div>
                 <div className="text-right">
@@ -392,7 +561,7 @@ export default function FactoringView({
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Signing Smart Escrow...</span>
+                    <span>Submitting to Marketplace...</span>
                   </>
                 ) : (
                   <>
@@ -409,7 +578,7 @@ export default function FactoringView({
           <div className="bg-slate-50 border border-slate-200 rounded-[12px] p-4 flex gap-3 text-slate-500 text-xs shadow-3xs leading-relaxed">
             <ShieldCheck className="w-8 h-8 text-[#0052CC] shrink-0 mt-0.5" />
             <p>
-              By submitting, these invoices will be visible to institutional liquidity providers on the Verity network. A cryptographically secure commitment hash will be generated upon immediate funding.
+              By submitting, these invoices will be visible to institutional liquidity providers on the Verity network. Settlement operations start only after investor funding and platform settlement instructions are created.
             </p>
           </div>
 
@@ -417,18 +586,6 @@ export default function FactoringView({
 
       </div>
 
-      {/* Floating success notification card */}
-      {showSuccessNotification && (
-        <div className="fixed bottom-10 inset-x-6 mx-auto max-w-md bg-emerald-600 text-white p-4 rounded-[12px] shadow-lg border border-emerald-500 flex items-center gap-3 animate-slideIn z-50">
-          <CheckCircle2 className="w-6 h-6 text-emerald-100 shrink-0" />
-          <div>
-            <p className="font-extrabold text-sm">Financing Request Submitted!</p>
-            <p className="text-[11.5px] text-emerald-50/90 mt-0.5 leading-tight">
-              Invoiced assets have been registered inside the escrow pool. Opening settlement workflow...
-            </p>
-          </div>
-        </div>
-      )}
       {submissionError && (
         <div className="rounded-[8px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
           {submissionError}

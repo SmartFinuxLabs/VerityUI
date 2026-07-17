@@ -12,11 +12,8 @@ import InvoiceVerification from './components/InvoiceVerification';
 import ReviewRebuttal from './components/ReviewRebuttal';
 import { Invoice, FundingRequest, LiquidityProfile } from './types';
 import {
-  getBuyerDemoWorkspaceState,
   getBuyerWorkspaceInitialState,
-  isDemoWorkspaceDataMode,
   loadBuyerWorkspaceState,
-  persistBuyerDemoWorkspaceState,
 } from '../lib/workspaceData';
 import {
   getParticipantAccessSnapshot,
@@ -52,9 +49,7 @@ export default function BuyerWorkspace({
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [brandingMode, setBrandingMode] = useState<'finux' | 'verity'>('verity');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [workspaceDataStatus, setWorkspaceDataStatus] = useState<'loading' | 'ready' | 'error'>(
-    isDemoWorkspaceDataMode() ? 'ready' : 'loading'
-  );
+  const [workspaceDataStatus, setWorkspaceDataStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [workspaceDataError, setWorkspaceDataError] = useState('');
   
   // App Core Data states
@@ -89,10 +84,6 @@ export default function BuyerWorkspace({
       isMounted = false;
     };
   }, []);
-
-  useEffect(() => {
-    persistBuyerDemoWorkspaceState({ invoices, fundingRequests, liquidity });
-  }, [invoices, fundingRequests, liquidity]);
 
   // Handle Wallet toggles
   const handleToggleWallet = () => {
@@ -129,43 +120,22 @@ export default function BuyerWorkspace({
   // Invoice Actions: Accept & Sign
   const handleAcceptAndSignInvoice = async (id: string) => {
     const invoice = invoices.find(inv => inv.id === id);
-    if (!isDemoWorkspaceDataMode() && invoice) {
-      try {
-        const snapshot = getParticipantAccessSnapshot();
-        if (snapshot?.provider === 'api' && snapshot.accessToken) {
-          await verityApi.createInvoiceResolution(snapshot.accessToken, id, {
-            decisionState: 'ACCEPTED',
-            decisionReason: 'Buyer accepted and cryptographically signed invoice.',
-            reasonCode: 'BUYER_APPROVED',
-            acceptedAmount: invoice.grossAmount || invoice.amount
-          });
-          await refreshBuyerWorkspace();
-          setActiveTab('verification-details');
-          return;
-        }
-      } catch (err) {
-        console.error('Failed to persist buyer invoice approval to database:', err);
-        return;
-      }
+    const snapshot = getParticipantAccessSnapshot();
+    if (snapshot?.provider !== 'api' || !snapshot.accessToken) {
+      throw new Error('API buyer invoice approval requires a signed-in VerityAPI session.');
+    }
+    if (!invoice) {
+      throw new Error('Invoice is required before buyer approval can be submitted.');
     }
 
-    setInvoices(prev => prev.map(inv => {
-      if (inv.id === id) {
-        return {
-          ...inv,
-          status: 'VERIFIED',
-          signedAt: new Date().toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-          }) + ' ' + new Date().toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        };
-      }
-      return inv;
-    }));
+    await verityApi.createInvoiceResolution(snapshot.accessToken, id, {
+      decisionState: 'ACCEPTED',
+      decisionReason: 'Buyer accepted and cryptographically signed invoice.',
+      reasonCode: 'BUYER_APPROVED',
+      acceptedAmount: invoice.grossAmount || invoice.amount
+    });
+    await refreshBuyerWorkspace();
+    setActiveTab('verification-details');
   };
 
   const handleSubmitDisputeInvoice = async (
@@ -175,113 +145,54 @@ export default function BuyerWorkspace({
     filename: string, 
     filesize: string
   ) => {
-    if (!isDemoWorkspaceDataMode()) {
-      try {
-        const snapshot = getParticipantAccessSnapshot();
-        if (snapshot?.provider === 'api' && snapshot.accessToken) {
-          await verityApi.createInvoiceResolution(snapshot.accessToken, id, {
-            decisionState: 'DISPUTED',
-            decisionReason: description,
-            reasonCode: reason,
-            acceptedAmount: 0
-          });
-        }
-      } catch (err) {
-        console.error('Failed to persist dispute to database:', err);
-      }
+    const snapshot = getParticipantAccessSnapshot();
+    if (snapshot?.provider !== 'api' || !snapshot.accessToken) {
+      throw new Error('API buyer dispute submission requires a signed-in VerityAPI session.');
     }
 
-    setInvoices(prev => prev.map(inv => {
-      if (inv.id === id) {
-        return {
-          ...inv,
-          status: 'CONTESTED',
-          dispute: {
-            reason,
-            description,
-            evidenceFileName: filename,
-            evidenceFileSize: filesize,
-            date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-          },
-          // Auto-inject a neat simulated matching supplier rebuttal so the user can experience the Screen 4 review workflow immediately!
-          rebuttal: {
-            stance: 'Review Filed',
-            explanation: 'Supplier system acknowledged receipt of customer dispute file (' + filename + '). The supplier will investigate inventory serial counters.',
-            evidenceFileName: 'dock_log_receipts_full.pdf',
-            evidenceFileSize: '1.5 MB',
-            date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-          }
-        };
-      }
-      return inv;
-    }));
+    await verityApi.createInvoiceResolution(snapshot.accessToken, id, {
+      decisionState: 'DISPUTED',
+      decisionReason: `${description} Evidence: ${filename} (${filesize}).`,
+      reasonCode: reason,
+      acceptedAmount: 0
+    });
+    await refreshBuyerWorkspace();
   };
 
   // Rebuttal Actions: Resolving conflict
   const handleAcceptRebuttal = async (id: string) => {
     const inv = invoices.find(x => x.id === id);
-    if (!isDemoWorkspaceDataMode() && inv) {
-      try {
-        const snapshot = getParticipantAccessSnapshot();
-        if (snapshot?.provider === 'api' && snapshot.accessToken) {
-          await verityApi.createInvoiceResolution(snapshot.accessToken, id, {
-            decisionState: 'ACCEPTED',
-            decisionReason: 'Accept supplier proof of shipment. Ledger updated.',
-            reasonCode: 'REBUTTAL_ACCEPTED',
-            acceptedAmount: inv.grossAmount || inv.amount
-          });
-          await refreshBuyerWorkspace();
-          setActiveTab('verification-details');
-          return;
-        }
-      } catch (err) {
-        console.error('Failed to persist rebuttal acceptance to database:', err);
-        return;
-      }
+    const snapshot = getParticipantAccessSnapshot();
+    if (snapshot?.provider !== 'api' || !snapshot.accessToken) {
+      throw new Error('API buyer rebuttal acceptance requires a signed-in VerityAPI session.');
+    }
+    if (!inv) {
+      throw new Error('Invoice is required before rebuttal acceptance can be submitted.');
     }
 
-    setInvoices(prev => prev.map(inv => {
-      if (inv.id === id) {
-        return {
-          ...inv,
-          status: 'VERIFIED',
-          internalNotes: (inv.internalNotes || '') + '\n[Resolved today]: Accept supplier proof of shipment. Ledger updated.'
-        };
-      }
-      return inv;
-    }));
-    // Navigate to Invoice Details to show confirmation
+    await verityApi.createInvoiceResolution(snapshot.accessToken, id, {
+      decisionState: 'ACCEPTED',
+      decisionReason: 'Accept supplier proof of shipment. Ledger updated.',
+      reasonCode: 'REBUTTAL_ACCEPTED',
+      acceptedAmount: inv.grossAmount || inv.amount
+    });
+    await refreshBuyerWorkspace();
     setActiveTab('verification-details');
   };
 
   const handleUpholdDispute = async (id: string) => {
-    if (!isDemoWorkspaceDataMode()) {
-      try {
-        const snapshot = getParticipantAccessSnapshot();
-        if (snapshot?.provider === 'api' && snapshot.accessToken) {
-          await verityApi.createInvoiceResolution(snapshot.accessToken, id, {
-            decisionState: 'DISPUTED',
-            decisionReason: 'Requested replacement batch from supplier.',
-            reasonCode: 'DISPUTE_UPHELD',
-            acceptedAmount: 0
-          });
-        }
-      } catch (err) {
-        console.error('Failed to persist upheld dispute to database:', err);
-      }
+    const snapshot = getParticipantAccessSnapshot();
+    if (snapshot?.provider !== 'api' || !snapshot.accessToken) {
+      throw new Error('API buyer dispute resolution requires a signed-in VerityAPI session.');
     }
 
-    setInvoices(prev => prev.map(inv => {
-      if (inv.id === id) {
-        return {
-          ...inv,
-          status: 'PENDING_VERIFICATION', // reset or keep contested
-          internalNotes: (inv.internalNotes || '') + '\n[Dispute upheld]: Requested replacement batch from supplier.'
-        };
-      }
-      return inv;
-    }));
-    // Navigate to Invoice Details to show confirmation
+    await verityApi.createInvoiceResolution(snapshot.accessToken, id, {
+      decisionState: 'DISPUTED',
+      decisionReason: 'Requested replacement batch from supplier.',
+      reasonCode: 'DISPUTE_UPHELD',
+      acceptedAmount: 0
+    });
+    await refreshBuyerWorkspace();
     setActiveTab('verification-details');
   };
 
@@ -294,16 +205,6 @@ export default function BuyerWorkspace({
     } else {
       setActiveTab('verification-details');
     }
-  };
-
-  // Sandbox Sandbox functions
-  const handleResetSandbox = () => {
-    const demoState = getBuyerDemoWorkspaceState();
-    setInvoices(demoState.invoices);
-    setFundingRequests(demoState.fundingRequests);
-    setLiquidity(demoState.liquidity);
-    setSelectedInvoiceId(null);
-    setActiveTab('dashboard');
   };
 
   // Search filter
@@ -341,7 +242,7 @@ export default function BuyerWorkspace({
       case 'history':
         return { title: 'Immutable Cleared History', sub: 'Archived ledger transactions.' };
       case 'settings':
-        return { title: 'Settings & Sandbox Controls', sub: 'Configure corporate parameters and simulate platform pathways.' };
+        return { title: 'Settings', sub: 'Configure corporate parameters and refresh workspace data.' };
       case 'help':
         return { title: 'Help Center', sub: 'Reference manuals for supply chain finance.' };
       case 'compliance':
@@ -620,22 +521,22 @@ export default function BuyerWorkspace({
             </div>
           )}
 
-          {/* Sandbox & Dev Tools Panel */}
+          {/* Settings Panel */}
           {activeTab === 'settings' && (
             <div className="bg-white p-6 rounded-xl border border-[#E5E7EB] space-y-6" id="settings-tab-view">
               <div className="border-b border-dashed border-slate-100 pb-3 flex items-center justify-between">
                 <div>
-                  <h3 className="font-sans font-bold text-slate-800 text-sm">Corporate Settings & Dev Sandbox</h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5 font-sans">Simulate and reset verification conditions for this workspace.</p>
+                  <h3 className="font-sans font-bold text-slate-800 text-sm">Corporate Settings</h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5 font-sans">Refresh API-backed workspace data and configure display preferences.</p>
                 </div>
                 
                 <button
-                  id="btn-sandbox-hard-reset"
-                  onClick={handleResetSandbox}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 font-sans font-bold text-xs text-white rounded-lg transition-all"
+                  id="btn-workspace-refresh"
+                  onClick={refreshBuyerWorkspace}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-brand-primary hover:bg-brand-primary-container font-sans font-bold text-xs text-white rounded-lg transition-all"
                 >
                   <RefreshCw className="w-3.5 h-3.5 shrink-0" />
-                  <span>Reset Demo State</span>
+                  <span>Refresh Workspace Data</span>
                 </button>
               </div>
 

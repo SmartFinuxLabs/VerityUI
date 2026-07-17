@@ -47,7 +47,7 @@ describe('supplier FactoringView component functions', () => {
     expect(screen.getByText('268.50')).toBeInTheDocument();
   });
 
-  it('submits selected invoices and routes to settlement after escrow signing', async () => {
+  it('reviews selected invoices before submitting and confirms marketplace listing without settlement routing', async () => {
     vi.useFakeTimers();
     const onSelectRoute = vi.fn();
     const onSubmitFactoringBatch = vi.fn();
@@ -65,7 +65,15 @@ describe('supplier FactoringView component functions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Submit to Marketplace/i }));
 
-    expect(screen.getByText(/Signing Smart Escrow/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Review Marketplace Submission/i })).toBeInTheDocument();
+    expect(screen.getByText('INV-002')).toBeInTheDocument();
+    expect(screen.getByText('Globex Buyer')).toBeInTheDocument();
+    expect(screen.getByText(/Representation and warranty recourse acknowledged/i)).toBeInTheDocument();
+    expect(onSubmitFactoringBatch).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Confirm Submission$/i }));
+
+    expect(screen.getByText(/Submitting to Marketplace/i)).toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2000);
@@ -84,13 +92,19 @@ describe('supplier FactoringView component functions', () => {
         settlementCurrency: 'USDC',
       })
     );
-    expect(screen.getByText(/Financing Request Submitted/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Marketplace Submission Confirmed/i })).toBeInTheDocument();
+    expect(screen.getByText(/Marketplace Listed/i)).toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2500);
     });
 
-    expect(onSelectRoute).toHaveBeenCalledWith('settlement');
+    expect(onSelectRoute).not.toHaveBeenCalledWith('settlement');
+
+    fireEvent.click(screen.getByRole('button', { name: /View Invoice Queue/i }));
+
+    expect(onSelectRoute).toHaveBeenCalledWith('invoice-queue');
+    vi.useRealTimers();
   });
 
   it('prevents marketplace submission when no invoices are selected', async () => {
